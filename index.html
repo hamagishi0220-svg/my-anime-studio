@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f6f1">
+  <title>MY ANIME STUDIO</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-5tXbN5NcviFKetTNzEmBgDjriCe5traojXtAvz/Nodo='; style-src 'sha256-LcKZO3eDBHsryQpu9yXrRon1K2YcG6UBK/m2YTotWCs='; img-src blob:; media-src blob:; base-uri 'none'; form-action 'none'">
+  <style>
+:root {
+  color-scheme: light;
+  font-family: "Hiragino Sans", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  color: #221d30;
+  background: #f8f6f1;
+  --canvas: #f8f6f1;
+  --surface: #fffdf9;
+  --ink: #221d30;
+  --muted: #605a6d;
+  --line: #e9e4eb;
+  --purple: #5535af;
+  --pale: #efe9fb;
+  --danger: #a42445;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .55; }
+:focus-visible { outline: 3px solid #7759d8; outline-offset: 3px; }
+[hidden] { display: none !important; }
+.ico { width: 20px; height: 20px; display: inline-block; vertical-align: middle; flex: none; }
+.layout { min-height: 100vh; display: grid; grid-template-columns: 226px minmax(0, 1fr); }
+.sidebar { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; padding: 30px 17px 20px; background: #fffdf9; border-right: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font: 850 .97rem/1.04 system-ui,sans-serif; letter-spacing: .055em; width: fit-content; }
+.sidebar .brand { margin: 0 9px 42px; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px 11px 11px 4px; background: var(--purple); color: white; font-size: .79rem; padding-left: 2px; }
+.brand-studio { display: block; color: var(--purple); font-size: .72rem; letter-spacing: .24em; margin-top: 5px; }
+.nav-link { display: flex; align-items: center; gap: 11px; min-height: 45px; color: var(--muted); font-size: .88rem; font-weight: 700; padding: 0 12px; border-radius: 10px; }
+.nav-link:hover { background: #f4effb; color: var(--purple); }
+.nav-link[aria-current="page"] { background: var(--pale); color: #432694; }
+#desktop-nav { display: grid; gap: 5px; }
+.active-work { margin-top: auto; }
+.active-tile { color: var(--muted); padding: 12px; background: var(--canvas); border: 1px solid #eeebe5; border-radius: 12px; }
+.active-tile span { display: block; color: var(--purple); font-size: .68rem; font-weight: 800; margin-bottom: 5px; }
+.active-tile strong { display: block; color: var(--ink); font-size: .86rem; overflow-wrap: anywhere; }
+.topbar { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 clamp(20px, 4vw, 56px); border-bottom: 1px solid var(--line); background: #fffdf9; }
+.breadcrumb { color: var(--muted); font-size: .83rem; overflow-wrap: anywhere; }
+.breadcrumb strong { color: var(--ink); }
+.crumb-divider { color: #82788d; margin-inline: .7em; }
+.storage-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; font-size: .73rem; }
+.storage-status > span { width: 7px; height: 7px; border-radius: 50%; background: #368559; }
+.storage-status.unavailable > span { background: var(--danger); }
+.mobile-brand, .mobile-nav { display: none; }
+main { max-width: 1250px; margin-inline: auto; padding: 34px clamp(20px, 4vw, 56px) 48px; }
+.section-head, .page-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.page-head { margin-bottom: 25px; }
+.page-head h1 { margin: 0; font-size: clamp(1.55rem, 3.4vw, 2.15rem); line-height: 1.25; letter-spacing: -.035em; }
+.page-context { color: var(--purple); font-size: .74rem; font-weight: 800; margin: 0 0 6px; overflow-wrap: anywhere; }
+.section-head { margin: 31px 0 13px; }
+.section-head h2 { font-size: 1.14rem; margin: 0; }
+.button, .icon-button { display: inline-flex; justify-content: center; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 10px; min-height: 44px; padding: 8px 13px; font-size: .84rem; font-weight: 780; line-height: 1.25; }
+.button .ico { width: 17px; height: 17px; }
+.primary { background: var(--purple); color: #fff; }
+.primary:hover { background: #43258f; }
+.secondary, .icon-button { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.secondary:hover, .icon-button:hover { background: var(--pale); }
+.danger { background: var(--danger); color: white; }
+.text-danger { background: transparent; color: var(--danger); }
+.text-danger:hover { background: #fbebef; }
+.icon-button { width: 44px; padding: 0; font-size: 1.5rem; }
+.hero { position: relative; overflow: hidden; border-radius: 18px; background: #282044; color: white; min-height: 302px; display: grid; align-items: center; isolation: isolate; }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 73% 36%, #8561c296, transparent 43%), linear-gradient(112deg,#211831, #393365 68%,#514c7e); }
+.hero-content { padding: 30px clamp(23px, 5vw, 48px); max-width: 39rem; }
+.hero-genre { margin: 0 0 12px; color: #e3d8ff; font-size: .74rem; font-weight: 800; letter-spacing: .14em; overflow-wrap: anywhere; }
+.hero h2 { font-size: clamp(2.3rem, 7vw, 4.25rem); line-height: 1.09; letter-spacing: -.055em; margin: 0; overflow-wrap: anywhere; }
+.hero-summary { max-width: 32em; margin: 14px 0 21px; color: #f5eefc; font-size: .86rem; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hero-actions, .row-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.hero-open { background: #fff; color: #362563; }
+.hero-open:hover { background: #eee4ff; }
+.hero-edit { background: #282041b3; border-color: #fff6; color: #fff; }
+.hero-edit:hover { background: #3e305e; }
+.tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; }
+.tool { display: grid; gap: 10px; min-height: 119px; padding: 13px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.tool:hover, .work-item a:hover { border-color: #a48ad8; }
+.tool .tool-end { display: flex; justify-content: space-between; align-items: end; gap: 4px; }
+.tool .tool-end > .ico { width: 15px; color: var(--muted); }
+.tool strong { display: block; font-size: .88rem; }
+.tool small { display: block; color: var(--muted); font-size: .71rem; margin-top: 4px; }
+.tile-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: #efe8ff; color: #5835ae; }
+.tool:nth-child(2) .tile-icon { color: #98486b; background: #fbe8ef; }
+.tool:nth-child(3) .tile-icon { color: #326b75; background: #e5f3f1; }
+.tool:nth-child(4) .tile-icon { color: #8b5b2b; background: #f9eee0; }
+.work-grid, .entries, .board-grid, .asset-grid { display: grid; gap: 12px; }
+.work-grid, .board-grid, .asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.work-item a, .entry, .board, .asset, .empty { border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.work-item a { display: block; padding: 15px; }
+.work-item a span, .entry-label, .asset-info { color: var(--purple); font-weight: 800; font-size: .72rem; }
+.work-item a strong { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.entry, .board, .asset, .empty { padding: 15px; min-width: 0; }
+.entry { display: flex; align-items: flex-start; gap: 12px; }
+.entry-number { flex: none; height: 36px; min-width: 36px; padding: 0 5px; display: grid; place-items: center; color: var(--purple); background: var(--pale); border-radius: 8px; font-size: .8rem; font-weight: 850; }
+.entry-content { flex: 1; min-width: 0; }
+.entry h2, .board h2, .asset h2 { margin: 2px 0 0; font-size: 1rem; overflow-wrap: anywhere; }
+.entry p, .board p, .asset p, .empty p { color: var(--muted); font-size: .84rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; margin: 7px 0 0; }
+.entry .row-actions, .board .row-actions, .asset .row-actions { margin-top: 12px; }
+.entry .row-actions .button, .board .row-actions .button, .asset .row-actions .button { min-height: 44px; }
+.board-image, .asset-media { display: grid; place-items: center; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 8px; margin-bottom: 12px; background: #eee8f7; color: #705596; }
+.board-image img, .asset-media img, .asset-media video { width: 100%; height: 100%; display: block; object-fit: contain; }
+.asset-audio { width: 100%; margin-bottom: 10px; }
+.empty { padding: 24px; }
+.empty p { margin: 0; }
+dialog { color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(92vw, 520px); max-height: 90dvh; }
+dialog::backdrop { background: #21182a91; }
+.dialog-header, .dialog-body, .dialog-actions, .form-error { padding: 15px 19px; }
+.dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.dialog-header h2 { font-size: 1.14rem; margin: 0; }
+.dialog-body { display: grid; gap: 12px; }
+.field { display: grid; gap: 6px; color: var(--ink); font-weight: 700; font-size: .83rem; }
+.field input, .field textarea, .field select { background: #fff; color: var(--ink); border: 1px solid #d6cde2; padding: 9px 10px; border-radius: 8px; width: 100%; min-width: 0; min-height: 44px; font-size: 16px; font-weight: 450; }
+.field textarea { resize: vertical; min-height: 96px; }
+.field input::file-selector-button { border: 0; padding: 6px 8px; background: var(--pale); color: var(--purple); border-radius: 4px; }
+.form-hint { color: var(--muted); font-size: .8rem; line-height: 1.55; margin: 0; overflow-wrap: anywhere; }
+.form-error { margin: 0; color: var(--danger); font-size: .83rem; }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); }
+.notice { position: fixed; z-index: 2; bottom: 18px; right: 18px; border-radius: 9px; color: white; background: #2f2448; font-size: .84rem; padding: 0; }
+.notice:not(:empty) { padding: 12px 16px; }
+@media (max-width: 970px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .layout { display: block; }
+  .sidebar, .breadcrumb { display: none; }
+  .mobile-brand { display: flex; letter-spacing: .04em; font-size: .79rem; }
+  .mobile-brand .brand-mark { width: 30px; height: 30px; border-radius: 8px 8px 8px 3px; }
+  .topbar { min-height: 56px; padding-inline: 16px; }
+  main { padding: 22px 16px calc(93px + env(safe-area-inset-bottom)); }
+  .page-head { margin-bottom: 16px; gap: 8px; }
+  .hero { min-height: 275px; }
+  .hero.seeded::before { background-position: center, 61% 50%; }
+  .hero-content { padding: 23px 18px; }
+  .hero-summary { font-size: .8rem; }
+  .section-head { margin-top: 24px; }
+  .tools { gap: 8px; }
+  .tool { min-height: 98px; padding: 10px; gap: 5px; }
+  .mobile-nav { display: grid; position: fixed; z-index: 1; bottom: 0; left: 0; right: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--line); padding: 5px 4px calc(5px + env(safe-area-inset-bottom)); background: var(--surface); }
+  .mobile-nav .nav-link { flex-direction: column; justify-content: center; text-align: center; font-size: .65rem; gap: 3px; min-height: 51px; padding: 3px 0; }
+  .notice { bottom: calc(73px + env(safe-area-inset-bottom)); max-width: calc(100% - 36px); }
+}
+@media (max-width: 510px) { .board-grid, .asset-grid { grid-template-columns: 1fr; } }
+</style>
+  
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="#/works">
+        <span class="brand-mark" aria-hidden="true">▶</span>
+        <span>MY ANIME<span class="brand-studio">STUDIO</span></span>
+      </a>
+      <nav id="desktop-nav" aria-label="メインメニュー"></nav>
+      <div id="active-work" class="active-work"></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <a class="brand mobile-brand" href="#/works">
+          <span class="brand-mark" aria-hidden="true">▶</span><span>MY ANIME STUDIO</span>
+        </a>
+        <div id="breadcrumb" class="breadcrumb"></div>
+        <span class="storage-status"><span aria-hidden="true"></span>このブラウザに保存</span>
+      </header>
+      <main id="main" aria-busy="true"><p>スタジオを開いています…</p></main>
+    </div>
+    <nav id="mobile-nav" class="mobile-nav" aria-label="メインメニュー"></nav>
+  </div>
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="editor-form">
+      <header class="dialog-header">
+        <h2 id="editor-title"></h2>
+        <button type="button" class="icon-button" data-action="close" aria-label="閉じる">×</button>
+      </header>
+      <div id="editor-body" class="dialog-body"></div>
+      <p id="editor-error" class="form-error" role="alert" hidden></p>
+      <footer class="dialog-actions">
+        <button type="button" class="button secondary" data-action="close">キャンセル</button>
+        <button type="submit" class="button primary" id="editor-submit">保存する</button>
+      </footer>
+    </form>
+  </dialog>
+  <div id="notice" class="notice" role="status"></div>
+<script>
+'use strict';
+
+const sample = {
+  id: 'osusume',
+  title: 'おすすめ',
+  genre: '短編SFミステリー',
+  summary: '2089年。都市の推薦AIが、存在しない駅への切符を勧めてくる。行方不明の姉を追う灯は、その行き先に自分の名前を見つける。',
+  scenes: [
+    { id: 'last-train', title: '終電のおすすめ', place: '東都・高架駅 ／ 深夜', notes: '終電を逃した灯の端末に、地図にない「零番駅」への切符が表示される。' },
+    { id: 'zero-platform', title: '零番ホーム', place: '無人の地下ホーム ／ 深夜', notes: '発車案内に表示された乗客は二人。灯と、三年前に失踪した姉の澪だった。' },
+    { id: 'next-recommendation', title: '次の行き先', place: '推薦AIの保守室 ／ 夜明け前', notes: '灯は推薦の履歴をたどり、姉が未来の自分へ残した経路を見つける。' },
+  ],
+  characters: [
+    { id: 'akari', name: '灯（あかり）', role: '主人公・交通記録の調査員', appearance: '短い黒髪。雨染みのある薄茶のコート。', notes: '失踪した姉を探す。駅の時計をつい自分の腕時計と見比べる。' },
+    { id: 'mio', name: '澪（みお）', role: '灯の姉・元推薦AI技師', appearance: '長い黒髪を結び、古い銀色の腕時計を着けている。', notes: '推薦システムから自分の情報を消し、灯にだけたどれる手掛かりを残した。' },
+  ],
+  boards: [
+    { id: 'ticket', title: '存在しない切符', sceneId: 'last-train', imageId: '', camera: '手元の寄り', notes: '濡れた端末に「あなたへのおすすめ：零番駅」と表示される。列車の走行音が止む。' },
+    { id: 'platform', title: '二人の乗客', sceneId: 'zero-platform', imageId: '', camera: 'ホーム全景', notes: '無人の線路の先で、紫の信号が一つだけ点灯する。天井の案内板が姉の名前に切り替わる。' },
+  ],
+};
+
+const views = {
+  works: { label: '作品一覧', icon: 'works' },
+  scenes: { label: 'シーン管理', icon: 'scenes', unit: 'シーン' },
+  characters: { label: 'キャラクター', title: 'キャラクター設定', icon: 'characters', unit: '人' },
+  boards: { label: '絵コンテ', icon: 'boards', unit: 'カット' },
+  assets: { label: '素材', title: '素材アップロード', icon: 'assets', unit: '件' },
+};
+
+const paths = {
+  works: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M8 6l2-3m4 3 2-3"/>',
+  scenes: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8m-8 3h5"/>',
+  characters: '<circle cx="10" cy="8" r="3"/><path d="M4 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-14a3 3 0 0 1 0 6m2 2a4 4 0 0 1 2 4v2"/>',
+  boards: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 12h18"/>',
+  assets: '<path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>',
+  arrow: '<path d="M4 12h15m-6-6 6 6-6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1"/><path d="m3 17 5-4 4 3 4-5 5 6"/>',
+};
+
+const main = document.getElementById('main');
+const editor = document.getElementById('editor');
+const form = document.getElementById('editor-form');
+const formError = document.getElementById('editor-error');
+const submit = document.getElementById('editor-submit');
+const notice = document.getElementById('notice');
+let database;
+let state;
+let saveEditor;
+let renderVersion = 0;
+let noticeTimer;
+let mediaUrls = new Map();
+
+function icon(name) {
+  return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+}
+
+function id() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function storageName() {
+  const directory = location.pathname.replace(/\/index\.html$/, '/').replace(/\/+$/, '');
+  // Project sites on the same GitHub Pages account share an origin.
+  return directory && location.protocol !== 'file:'
+    ? `my-anime-studio:${directory}`
+    : 'my-anime-studio';
+}
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(storageName(), 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      db.createObjectStore('projects', { keyPath: 'id' }).add(sample);
+      db.createObjectStore('assets', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('別のタブを閉じてから、ページを再読み込みしてください。'));
+  });
+}
+
+function result(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function transaction(stores, mode, operate) {
+  const tx = database.transaction(stores, mode);
+  const finished = new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onabort = () => reject(tx.error ?? new Error('保存処理が中断されました。'));
+  });
+
+  try {
+    const [value] = await Promise.all([operate(tx), finished]);
+    return value;
+  } catch (error) {
+    try { tx.abort(); } catch { /* The transaction may have already ended. */ }
+    throw error;
+  }
+}
+
+function readStudio(projectId) {
+  return transaction(['projects', 'assets'], 'readonly', async tx => {
+    const projects = await result(tx.objectStore('projects').getAll());
+    const project = projects.find(item => item.id === projectId)
+      ?? projects.find(item => item.id === sample.id)
+      ?? projects[0];
+    const assets = await result(tx.objectStore('assets').index('projectId').getAll(project.id));
+    assets.sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name, 'ja'));
+    return { projects, project, assets };
+  });
+}
+
+function changeProject(projectId, update) {
+  return transaction(['projects', 'assets'], 'readwrite', async tx => {
+    const projects = tx.objectStore('projects');
+    const project = await result(projects.get(projectId));
+    if (!project) throw new Error('この作品は見つかりません。');
+    await update(project, tx.objectStore('assets'));
+    return result(projects.put(project));
+  });
+}
+
+function notify(message) {
+  notice.textContent = message;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { notice.textContent = ''; }, 3200);
+}
+
+function report(error) {
+  return error?.name === 'QuotaExceededError'
+    ? 'ブラウザの保存容量が足りません。不要な素材を削除するか、小さいファイルを選んでください。'
+    : error?.name === 'Error' ? error.message : '処理を完了できませんでした。もう一度お試しください。';
+}
+
+function href(view, projectId) {
+  return `#/${view}/${projectId}`;
+}
+
+function navigation(view, project) {
+  return Object.entries(views).map(([key, config]) => `
+    <a class="nav-link" href="${href(key, project.id)}"${key === view ? ' aria-current="page"' : ''}>
+      ${icon(config.icon)}<span>${config.label}</span>
+    </a>`).join('');
+}
+
+function action(label, verb, itemId = '', className = 'secondary') {
+  return `<button type="button" class="button ${className}" data-action="${verb}" data-id="${itemId}">${label}</button>`;
+}
+
+function pageHead(view, addLabel, project) {
+  return `<div class="page-head">
+    <div>${view === 'works' ? '' : `<p class="page-context">${escapeHtml(project.title)}</p>`}
+      <h1 id="view-title" tabindex="-1">${views[view].title ?? views[view].label}</h1>
+    </div>
+    ${action(icon('plus') + addLabel, 'add', '', 'primary')}
+  </div>`;
+}
+
+function worksPage({ project, projects, assets }) {
+  const otherWorks = projects.filter(item => item.id !== project.id);
+  return pageHead('works', '作品を作成', project) + `
+    <section class="hero ${project.id === sample.id ? 'seeded' : ''}" aria-labelledby="work-title">
+      <div class="hero-content">
+        ${project.genre ? `<p class="hero-genre">${escapeHtml(project.genre)}</p>` : ''}
+        <h2 id="work-title">${escapeHtml(project.title)}</h2>
+        ${project.summary ? `<p class="hero-summary">${escapeHtml(project.summary)}</p>` : ''}
+        <div class="hero-actions">
+          <a class="button hero-open" href="${href('scenes', project.id)}">制作を開く ${icon('arrow')}</a>
+          ${action('作品を編集', 'edit', project.id, 'hero-edit')}
+        </div>
+      </div>
+    </section>
+    <section aria-labelledby="tool-title">
+      <header class="section-head"><h2 id="tool-title">制作メニュー</h2></header>
+      <div class="tools">
+        ${Object.entries(views).filter(([key]) => key !== 'works').map(([key, config]) => `
+        <a class="tool" href="${href(key, project.id)}">
+          <span class="tile-icon">${icon(config.icon)}</span>
+          <span class="tool-end"><span><strong>${config.label}</strong>
+            <small>${(key === 'assets' ? assets : project[key]).length} ${config.unit}</small></span>${icon('arrow')}</span>
+        </a>`).join('')}
+      </div>
+    </section>
+    ${otherWorks.length ? `<section aria-labelledby="other-title">
+      <header class="section-head"><h2 id="other-title">ほかの作品</h2></header>
+      <div class="work-grid">${otherWorks.map(item => `
+        <article class="work-item"><a href="${href('works', item.id)}">
+          <span>${escapeHtml(item.genre)}</span><strong>${escapeHtml(item.title)}</strong>
+        </a></article>`).join('')}</div>
+    </section>` : ''}`;
+}
+
+function entryActions(item, index, length, ordered = true) {
+  const move = (label, direction, disabled) => `
+    <button type="button" class="button secondary" data-action="${direction}" data-id="${item.id}"${disabled ? ' disabled' : ''}>${label}</button>`;
+  return `<div class="row-actions">
+    ${action('編集', 'edit', item.id)}
+    ${ordered ? move('上へ', 'up', index === 0) + move('下へ', 'down', index === length - 1) : ''}
+    ${action('削除', 'remove', item.id, 'text-danger')}
+  </div>`;
+}
+
+const empty = message => `<div class="empty"><p>${message}</p></div>`;
+
+function scenesPage({ project }) {
+  return pageHead('scenes', 'シーンを追加', project) + (project.scenes.length ? `<div class="entries">${project.scenes.map((scene, index) => `
+    <article class="entry">
+      <span class="entry-number" aria-label="シーン ${index + 1}">${String(index + 1).padStart(2, '0')}</span>
+      <div class="entry-content">
+        ${scene.place ? `<span class="entry-label">${escapeHtml(scene.place)}</span>` : ''}
+        <h2>${escapeHtml(scene.title)}</h2>
+        ${scene.notes ? `<p>${escapeHtml(scene.notes)}</p>` : ''}
+        ${entryActions(scene, index, project.scenes.length)}
+      </div>
+    </article>`).join('')}</div>` : empty('シーンを追加して、物語の流れを組み立てます。'));
+}
+
+function charactersPage({ project }) {
+  return pageHead('characters', 'キャラクターを追加', project) + (project.characters.length ? `<div class="entries">${project.characters.map(character => `
+    <article class="entry">
+      <span class="entry-number">${icon('characters')}</span>
+      <div class="entry-content">
+        ${character.role ? `<span class="entry-label">${escapeHtml(character.role)}</span>` : ''}
+        <h2>${escapeHtml(character.name)}</h2>
+        ${character.appearance ? `<p>${escapeHtml(character.appearance)}</p>` : ''}
+        ${character.notes ? `<p>${escapeHtml(character.notes)}</p>` : ''}
+        ${entryActions(character, 0, 0, false)}
+      </div>
+    </article>`).join('')}</div>` : empty('登場人物の名前、役割、外見を登録できます。'));
+}
+
+function mediaUrl(asset) {
+  if (!mediaUrls.has(asset.id)) mediaUrls.set(asset.id, URL.createObjectURL(asset.blob));
+  return mediaUrls.get(asset.id);
+}
+
+function boardsPage({ project, assets }) {
+  return pageHead('boards', 'カットを追加', project) + (project.boards.length ? `<div class="board-grid">${project.boards.map((board, index) => {
+    const scene = project.scenes.find(item => item.id === board.sceneId);
+    const image = assets.find(asset => asset.id === board.imageId);
+    return `<article class="board">
+      <div class="board-image">${image ? `<img src="${mediaUrl(image)}" alt="${escapeHtml(image.name)}">` : icon('image')}</div>
+      <span class="entry-label">カット ${String(index + 1).padStart(2, '0')}${scene ? ` ・ ${escapeHtml(scene.title)}` : ''}</span>
+      <h2>${escapeHtml(board.title)}</h2>
+      ${board.camera ? `<p>${escapeHtml(board.camera)}</p>` : ''}
+      ${board.notes ? `<p>${escapeHtml(board.notes)}</p>` : ''}
+      ${entryActions(board, index, project.boards.length)}
+    </article>`;
+  }).join('')}</div>` : empty('カットの構図や演出を記録し、シーンや画像素材と関連付けられます。'));
+}
+
+function formatSize(bytes) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function assetPreview(asset) {
+  const url = mediaUrl(asset);
+  if (asset.kind === 'image') return `<div class="asset-media"><img src="${url}" alt="${escapeHtml(asset.name)}"></div>`;
+  if (asset.kind === 'video') return `<div class="asset-media"><video src="${url}" controls playsinline preload="metadata" aria-label="${escapeHtml(asset.name)}"></video></div>`;
+  return `<audio class="asset-audio" src="${url}" controls preload="metadata" aria-label="${escapeHtml(asset.name)}"></audio>`;
+}
+
+function assetsPage({ project, assets }) {
+  return pageHead('assets', 'ファイルを追加', project) + (assets.length ? `<div class="asset-grid">${assets.map(asset => `
+    <article class="asset">
+      ${assetPreview(asset)}
+      <span class="asset-info">${({ image: '画像', video: '動画', audio: '音声' })[asset.kind]} ・ ${formatSize(asset.blob.size)}</span>
+      <h2>${escapeHtml(asset.name)}</h2>
+      <div class="row-actions">
+        <a class="button secondary" href="${mediaUrl(asset)}" download="${escapeHtml(asset.name)}">ダウンロード</a>
+        ${action('削除', 'remove', asset.id, 'text-danger')}
+      </div>
+    </article>`).join('')}</div>` : empty('スマホから画像・音声・動画を追加できます。1ファイル25 MBまで。'));
+}
+
+const screens = { works: worksPage, scenes: scenesPage, characters: charactersPage, boards: boardsPage, assets: assetsPage };
+
+async function render(focusHeading = false) {
+  if (!database) return;
+  const version = ++renderVersion;
+  const [, segment, projectId] = location.hash.split('/');
+  const view = Object.hasOwn(views, segment) ? segment : 'works';
+  const data = await readStudio(projectId ?? state?.project.id);
+  if (version !== renderVersion) return;
+
+  const { project } = data;
+  const oldUrls = mediaUrls;
+  mediaUrls = new Map();
+  main.innerHTML = screens[view](data);
+  for (const url of oldUrls.values()) URL.revokeObjectURL(url);
+
+  state = { ...data, view };
+  const nav = navigation(view, project);
+  document.getElementById('desktop-nav').innerHTML = nav;
+  document.getElementById('mobile-nav').innerHTML = nav;
+  document.getElementById('active-work').innerHTML = `<div class="active-tile"><span>選択中の作品</span><strong>${escapeHtml(project.title)}</strong></div>`;
+  document.getElementById('breadcrumb').innerHTML = `<a href="${href('works', project.id)}">スタジオ</a><span class="crumb-divider">/</span><strong>${views[view].label}</strong>`;
+  main.setAttribute('aria-busy', 'false');
+  if (focusHeading) {
+    window.scrollTo(0, 0);
+    document.getElementById('view-title').focus({ preventScroll: true });
+  }
+}
+
+const fields = {
+  works: [
+    ['title', '作品名', 'text', true],
+    ['genre', 'ジャンル', 'text'],
+    ['summary', 'あらすじ', 'textarea'],
+  ],
+  scenes: [
+    ['title', 'シーン名', 'text', true],
+    ['place', '場所・時間', 'text'],
+    ['notes', '内容', 'textarea'],
+  ],
+  characters: [
+    ['name', '名前', 'text', true],
+    ['role', '役割', 'text'],
+    ['appearance', '外見', 'textarea'],
+    ['notes', '人物メモ', 'textarea'],
+  ],
+  boards: [
+    ['title', 'カット名', 'text', true],
+    ['sceneId', '関連するシーン', 'select'],
+    ['imageId', '画像素材', 'select'],
+    ['camera', '構図・カメラ', 'text'],
+    ['notes', '演出メモ', 'textarea'],
+  ],
+};
+
+const itemNames = { works: '作品', scenes: 'シーン', characters: 'キャラクター', boards: 'カット', assets: '素材' };
+
+function fieldMarkup([key, label, type, required], defaults, data) {
+  const value = defaults[key] ?? '';
+  let control;
+  if (type === 'textarea') {
+    control = `<textarea name="${key}" maxlength="2000" rows="4">${escapeHtml(value)}</textarea>`;
+  } else if (type === 'select') {
+    const options = key === 'sceneId'
+      ? data.project.scenes.map(scene => [scene.id, scene.title])
+      : data.assets.filter(asset => asset.kind === 'image').map(asset => [asset.id, asset.name]);
+    control = `<select name="${key}"><option value="">未設定</option>${options.map(([optionId, name]) =>
+      `<option value="${optionId}"${optionId === value ? ' selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>`;
+  } else {
+    control = `<input type="text" name="${key}" maxlength="120" value="${escapeHtml(value)}"${required ? ' required' : ''}>`;
+  }
+  return `<label class="field">${label}${control}</label>`;
+}
+
+function dialog(title, content, save, buttonLabel = '保存する', destructive = false) {
+  document.getElementById('editor-title').textContent = title;
+  document.getElementById('editor-body').innerHTML = content;
+  formError.hidden = true;
+  submit.textContent = buttonLabel;
+  submit.className = `button ${destructive ? 'danger' : 'primary'}`;
+  saveEditor = save;
+  editor.showModal();
+  const firstField = form.querySelector('input, textarea, select');
+  if (firstField && firstField.type !== 'file') firstField.focus();
+}
+
+function readFields(view, values) {
+  return Object.fromEntries(fields[view].map(([name, label, , required]) => {
+    const value = values.get(name).trim();
+    if (required && !value) throw new Error(`${label}を入力してください。`);
+    return [name, value];
+  }));
+}
+
+async function checkBoardLinks(project, assets, entry) {
+  if (entry.sceneId && !project.scenes.some(scene => scene.id === entry.sceneId)) {
+    throw new Error('選んだシーンが見つかりません。別のシーンを選んでください。');
+  }
+  if (entry.imageId) {
+    const image = await result(assets.get(entry.imageId));
+    if (image?.projectId !== project.id || image.kind !== 'image') {
+      throw new Error('選んだ画像が見つかりません。別の画像を選んでください。');
+    }
+  }
+}
+
+function editItem(view, itemId) {
+  const data = state;
+  const project = data.project;
+  const item = !itemId ? null : view === 'works' ? project : project[view].find(entry => entry.id === itemId);
+  if (itemId && !item) return;
+  const message = item ? `${itemNames[view]}を更新しました。` : `${itemNames[view]}を追加しました。`;
+  dialog(`${itemNames[view]}を${item ? '編集' : view === 'works' ? '作成' : '追加'}`,
+    fields[view].map(field => fieldMarkup(field, item ?? {}, data)).join(''),
+    async values => {
+      const entry = readFields(view, values);
+      if (view === 'works' && !item) {
+        const newProject = { ...entry, id: id(), scenes: [], characters: [], boards: [] };
+        await transaction(['projects'], 'readwrite', tx => result(tx.objectStore('projects').add(newProject)));
+        location.hash = href('works', newProject.id);
+      } else if (view === 'works') {
+        await changeProject(project.id, current => Object.assign(current, entry));
+      } else {
+        await changeProject(project.id, async (current, assets) => {
+          if (view === 'boards') await checkBoardLinks(current, assets, entry);
+          if (!item) {
+            current[view].push({ ...entry, id: id() });
+            return;
+          }
+          const existing = current[view].find(row => row.id === itemId);
+          if (!existing) throw new Error('編集するデータが見つかりません。');
+          Object.assign(existing, entry);
+        });
+      }
+      return message;
+    });
+}
+
+function upload() {
+  const projectId = state.project.id;
+  dialog('素材を追加', `
+    <label class="field">ファイルを選択
+      <input type="file" name="files" accept="image/*,audio/*,video/*" multiple required>
+    </label>
+    <p class="form-hint">画像・音声・動画を複数選べます。1ファイル25 MBまで。このブラウザに保存されます。</p>`,
+    async values => {
+      const files = values.getAll('files');
+      if (!files.length) throw new Error('ファイルを選択してください。');
+      const assets = files.map(file => {
+        const kind = file.type.split('/')[0];
+        if (!['image', 'audio', 'video'].includes(kind) || !file.size) {
+          throw new Error(`${file.name || '選択したファイル'}は対応形式の画像・音声・動画ではありません。`);
+        }
+        if (file.size > 25_000_000) throw new Error(`${file.name}が25 MBを超えています。`);
+        return { id: id(), projectId, kind, name: file.name, blob: file, createdAt: Date.now() };
+      });
+      await changeProject(projectId, (_project, store) => Promise.all(assets.map(asset => result(store.add(asset)))));
+      return `${assets.length}件の素材を追加しました。`;
+    }, '追加する');
+}
+
+function removeItem(view, itemId) {
+  const { project, assets } = state;
+  const item = (view === 'assets' ? assets : project[view]).find(entry => entry.id === itemId);
+  if (!item) return;
+  const details = view === 'scenes' ? '関連する絵コンテのカットは残り、シーンの関連付けが解除されます。'
+    : view === 'assets' ? '関連する絵コンテのカットは残り、画像の関連付けが解除されます。' : '';
+  dialog(`${itemNames[view]}を削除`, `<p class="form-hint">「${escapeHtml(item.title ?? item.name)}」を削除します。${details}</p>`,
+    async () => {
+      await changeProject(project.id, async (current, store) => {
+        if (view === 'assets') {
+          await result(store.delete(itemId));
+          for (const board of current.boards) if (board.imageId === itemId) board.imageId = '';
+          return;
+        }
+        current[view] = current[view].filter(entry => entry.id !== itemId);
+        if (view === 'scenes') {
+          for (const board of current.boards) if (board.sceneId === itemId) board.sceneId = '';
+        }
+      });
+      return `${itemNames[view]}を削除しました。`;
+    }, '削除する', true);
+}
+
+async function moveItem(view, itemId, delta) {
+  const projectId = state.project.id;
+  await changeProject(projectId, project => {
+    const list = project[view];
+    const index = list.findIndex(item => item.id === itemId);
+    const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return;
+    [list[index], list[nextIndex]] = [list[nextIndex], list[index]];
+  });
+  await render();
+  main.querySelector(`[data-action="edit"][data-id="${itemId}"]`)?.focus({ preventScroll: true });
+  notify('並び順を更新しました。');
+}
+
+let submitting = false;
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (submitting) return;
+  submitting = true;
+  submit.disabled = true;
+  formError.hidden = true;
+  try {
+    const message = await saveEditor(new FormData(form));
+    editor.close();
+    notify(message);
+    await render().catch(error => notify(report(error)));
+  } catch (error) {
+    formError.textContent = report(error);
+    formError.hidden = false;
+  } finally {
+    submitting = false;
+    submit.disabled = false;
+  }
+});
+
+editor.addEventListener('cancel', event => {
+  if (submitting) event.preventDefault();
+});
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button || button.disabled) return;
+  const { action: verb, id: itemId } = button.dataset;
+  if (verb === 'close') {
+    if (!submitting) editor.close();
+    return;
+  }
+  if (!state) return;
+  const { view } = state;
+  try {
+    if (verb === 'add' && view === 'assets') upload();
+    else if (verb === 'add' || verb === 'edit') editItem(view, itemId);
+    else if (verb === 'remove') removeItem(view, itemId);
+    else if (verb === 'up' || verb === 'down') {
+      button.disabled = true;
+      try {
+        await moveItem(view, itemId, verb === 'up' ? -1 : 1);
+      } finally {
+        button.disabled = false;
+      }
+    }
+  } catch (error) {
+    notify(report(error));
+  }
+});
+
+window.addEventListener('hashchange', () => {
+  if (editor.open && !submitting) editor.close();
+  render(true).catch(error => notify(report(error)));
+});
+
+async function start() {
+  try {
+    database = await openDatabase();
+    database.onversionchange = () => database.close();
+    await render();
+  } catch {
+    const indicator = document.querySelector('.storage-status');
+    indicator.classList.add('unavailable');
+    indicator.innerHTML = '<span aria-hidden="true"></span>保存に接続できません';
+    main.setAttribute('aria-busy', 'false');
+    main.innerHTML = `<div class="page-head"><h1>スタジオを開けません</h1></div>
+      ${empty('ブラウザの保存領域が利用できません。通常のブラウザタブでHTTPまたはHTTPSのアドレスを開き、再読み込みしてください。')}`;
+  }
+}
+
+start();
+</script>
+</body>
+</html>
