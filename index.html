@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f8f6f1">
   <title>MY ANIME STUDIO</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-i7UyKqrgim3A//nSiaKyAxh1fxF38v35ljwZ1iFl/7o='; style-src 'sha256-kbMlhBSZ6C+xt47b/f8x12CZIGUyYTCHtig/LTp6ub0='; img-src blob:; media-src blob:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-mMnQHHTIcbd/aDXLPouF9Fl0BDSgz1kcnnr9IhzqZEM='; style-src 'sha256-kHN9jhK7NHy8P1dzpCtEm8WevSjzMJ/9kDLGE5x32YU='; img-src blob:; media-src blob:; base-uri 'none'; form-action 'none'">
   <style>
 :root {
   color-scheme: light;
@@ -181,10 +181,28 @@ dialog::backdrop { background: #21182a91; }
 .character-references img { width: 62px; height: 62px; object-fit: cover; border-radius: 7px; background: var(--pale); }
 @media (max-width: 990px) { .film-layout { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
-  .mobile-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .mobile-nav { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .mobile-nav .nav-link { font-size: clamp(.49rem, 2.6vw, .65rem); }
   .film-player, .film-panel { padding: 12px; }
 }
+
+.ai-hero { padding: clamp(19px,4vw,35px); color: #fff6ff; background: linear-gradient(113deg,#211a39,#493478 85%); border: 1px solid #352653; border-radius: 15px; }
+.ai-hero h2 { margin: 9px 0; max-width: 26ch; font-size: clamp(1.23rem,4vw,1.8rem); line-height: 1.4; }
+.ai-hero p { margin: 9px 0 17px; max-width: 55ch; color: #f2eafa; font-size: .88rem; line-height: 1.65; }
+.ai-hero .primary { background: #d9c8ff; color: #28194e; }
+.ai-hero .primary:hover { background: #eee5ff; }
+.ai-hero .secondary { background: #382959; color: #fff7ff; border-color: #937eb7; }
+.ai-hero .secondary:hover { background: #4e3b70; }
+.ai-result-panel { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ai-result-panel p { color: var(--muted); font-size: .83rem; line-height: 1.55; margin: 5px 0 0; }
+.ai-draft { padding: 14px; }
+.ai-draft-header { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+.ai-draft-header > div { min-width: 0; flex: 1 1 8rem; }
+.ai-draft-header img { flex: none; width: 62px; height: 62px; object-fit: cover; border-radius: 8px; background: var(--pale); }
+.ai-draft-details { display: grid; gap: 5px; margin: 10px 0; font-size: .84rem; }
+.ai-draft-details > div { display: grid; grid-template-columns: 4.25em minmax(0, 1fr); gap: 5px; }
+.ai-draft-details dt { color: var(--muted); font-weight: 650; }
+.ai-draft-details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -332,6 +350,7 @@ async function parseBackup(file) {
       boards: project.boards.map(board => ({ ...board, imageId: remap(board.imageId, ['image']) })),
     };
     if (project.film || project.id === sample.id) copy.film = restoreFilm(filmOf(project), remap);
+    if (project.aiVideoRequests !== undefined) copy.aiVideoRequests = restoreAiRequests(project.aiVideoRequests, copy, remap);
     return copy;
   });
   return { projects: restoredProjects, assets: restoredAssets };
@@ -357,7 +376,7 @@ function importBackup() {
 'use strict';
 
 const filmDuration = 10;
-const shotStarts = [0, 3, 6, 10];
+const defaultCutTenths = [30, 30, 40];
 const shotLabels = ['歩く', '振り向く', '話す・表情'];
 const filmJobLabels = { motion: '動画生成', lipsync: 'リップシンク' };
 const mouthShapes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X'];
@@ -376,6 +395,35 @@ function defaultFilm(project) {
 const filmOf = project => project.film ?? defaultFilm(project);
 const editableFilm = project => project.film ??= defaultFilm(project);
 
+function filmShotStarts(film) {
+  const cuts = film.cutTenths ?? defaultCutTenths;
+  return [0, cuts[0] / 10, (cuts[0] + cuts[1]) / 10, filmDuration];
+}
+
+function formatFilmSeconds(seconds) {
+  return Number(seconds.toFixed(1)).toString();
+}
+
+function fitFilmCut(film, index, seconds) {
+  const cuts = film.cutTenths ?? defaultCutTenths;
+  const total = filmDuration * 10;
+  const target = Math.max(10, Math.ceil(seconds * 10 - .000001));
+  const minimums = film.shots.map(shot => Math.max(10, Math.floor(shot.audioOffset * 10 + .000001) + 1));
+  const [first, second] = [0, 1, 2].filter(cut => cut !== index);
+  const remaining = total - target - minimums[first] - minimums[second];
+  if (target < minimums[index] || remaining < 0) {
+    throw new Error('この長さでは各カットを1秒以上確保し、現在の音声開始位置を保てません。尺の調整をオフにするか、短いMP4を選んでください。');
+  }
+  const unused = cuts[first] + cuts[second] - minimums[first] - minimums[second];
+  const proportion = unused > 0 ? (cuts[first] - minimums[first]) / unused : .5;
+  const firstShare = Math.round(remaining * proportion);
+  const fitted = [...cuts];
+  fitted[index] = target;
+  fitted[first] = minimums[first] + firstShare;
+  fitted[second] = minimums[second] + remaining - firstShare;
+  film.cutTenths = fitted;
+}
+
 function validMouthCues(cues) {
   return Array.isArray(cues) && cues.length <= 2000 && cues.every((cue, index) =>
     Number.isFinite(cue?.start) && Number.isFinite(cue.end) && cue.start >= 0 && cue.start < cue.end
@@ -385,10 +433,17 @@ function validMouthCues(cues) {
 
 function restoreFilm(film, remap) {
   validateBackup(Array.isArray(film.shots) && film.shots.length === 3 && uniqueBackupIds(film.jobs));
+  if (film.cutTenths !== undefined) {
+    validateBackup(Array.isArray(film.cutTenths) && film.cutTenths.length === 3
+      && film.cutTenths.every(value => Number.isInteger(value) && value >= 10)
+      && film.cutTenths.reduce((sum, value) => sum + value, 0) === filmDuration * 10);
+  }
+  const starts = filmShotStarts(film);
   return {
+    ...(film.cutTenths ? { cutTenths: film.cutTenths } : {}),
     shots: film.shots.map((shot, index) => {
       validateBackup(validBackupTextFields(shot, 'line', 'characterId', 'visualId', 'audioId') && validMouthCues(shot.cues)
-        && Number.isFinite(shot.audioOffset) && shot.audioOffset >= 0 && shot.audioOffset < shotStarts[index + 1] - shotStarts[index]);
+        && Number.isFinite(shot.audioOffset) && shot.audioOffset >= 0 && shot.audioOffset < starts[index + 1] - starts[index]);
       return {
         ...shot, visualId: remap(shot.visualId, ['image', 'video']), audioId: remap(shot.audioId, ['audio']),
       };
@@ -454,6 +509,9 @@ function editCharacterReferences(characterId) {
         const target = current.characters.find(row => row.id === characterId);
         if (!target) throw new Error('キャラクターが見つかりません。');
         target.referenceIds = await Promise.all(keys.map(key => linkedFilmAsset(store, current.id, key, ['image'])));
+        for (const request of aiRequests(current)) {
+          if (request.characterId === characterId && !target.referenceIds.includes(request.referenceId)) request.referenceId = '';
+        }
       });
       return '参照画像を保存しました。';
     });
@@ -461,6 +519,7 @@ function editCharacterReferences(characterId) {
 
 function filmPage({ project, assets }) {
   const film = filmOf(project);
+  const starts = filmShotStarts(film);
   const names = new Map(assets.map(asset => [asset.id, asset.name]));
   return `<div class="page-head"><div><p class="page-context">${escapeHtml(project.title)}</p>
     <h1 id="view-title" tabindex="-1">10秒のテストシーン</h1></div></div>
@@ -484,7 +543,7 @@ function filmPage({ project, assets }) {
         <h2 id="timeline-title">タイムライン</h2>
         <p>3カットで10秒。デモ作画、画像または無音の動画に、録音素材と字幕を重ねます。</p>
         <div class="film-shots">${film.shots.map((shot, index) => `<article class="film-shot">
-          <h3><span>${shotStarts[index]}–${shotStarts[index + 1]}秒</span> ${shotLabels[index]}</h3>
+          <h3><span>${formatFilmSeconds(starts[index])}–${formatFilmSeconds(starts[index + 1])}秒</span> ${shotLabels[index]}</h3>
           ${shot.characterId ? `<p>${escapeHtml(project.characters.find(row => row.id === shot.characterId)?.name ?? '')}</p>` : ''}
           <p>${escapeHtml(names.get(shot.visualId) ?? 'デモ作画')} ／ ${escapeHtml(names.get(shot.audioId) ?? '音声なし')}</p>
           ${shot.line ? `<p class="film-line">${escapeHtml(shot.line)}</p>` : ''}
@@ -510,14 +569,16 @@ function filmPage({ project, assets }) {
 function editFilmShot(index) {
   if (![0, 1, 2].includes(index)) return;
   const { project, assets } = state;
-  const shot = filmOf(project).shots[index];
-  const duration = shotStarts[index + 1] - shotStarts[index];
+  const film = filmOf(project);
+  const shot = film.shots[index];
+  const starts = filmShotStarts(film);
+  const duration = formatFilmSeconds(starts[index + 1] - starts[index]);
   dialog(`${shotLabels[index]}のカット`, `
     ${filmSelect('characterId', 'キャラクター', project.characters.map(row => [row.id, row.name]), shot.characterId)}
     ${filmSelect('visualId', '映像素材', assetOptions(assets, ['image', 'video']), shot.visualId, 'デモ作画')}
     ${filmSelect('audioId', '音声素材', assetOptions(assets, ['audio']), shot.audioId, '音声なし')}
     <label class="field">カットの先頭から音声を遅らせる秒数
-      <input name="audioOffset" type="number" min="0" max="${duration - .1}" step=".1" value="${shot.audioOffset}" required>
+      <input name="audioOffset" type="number" min="0" max="${formatFilmSeconds(duration - .1)}" step=".1" value="${shot.audioOffset}" required>
     </label>
     <label class="field">セリフ・字幕<textarea name="line" maxlength="100" rows="2">${escapeHtml(shot.line)}</textarea></label>
     <p class="form-hint">動画は先頭から再生し、短い場合は最後のフレームで止まります。動画の元音声は使わず、選んだ音声素材を使用します。</p>`,
@@ -525,13 +586,18 @@ function editFilmShot(index) {
       const audioOffset = Number(values.get('audioOffset'));
       if (!Number.isFinite(audioOffset) || audioOffset < 0 || audioOffset >= duration) throw new Error('音声の開始位置を確認してください。');
       await changeProject(project.id, async (current, store) => {
+        const currentFilm = editableFilm(current);
+        const currentStarts = filmShotStarts(currentFilm);
+        if (audioOffset >= Number(formatFilmSeconds(currentStarts[index + 1] - currentStarts[index]))) {
+          throw new Error('カットの長さが変更されました。音声の開始位置を確認してください。');
+        }
         const characterId = values.get('characterId');
         if (characterId && !current.characters.some(row => row.id === characterId)) throw new Error('キャラクターが見つかりません。');
         const [visualId, audioId] = await Promise.all([
           linkedFilmAsset(store, current.id, values.get('visualId'), ['image', 'video']),
           linkedFilmAsset(store, current.id, values.get('audioId'), ['audio']),
         ]);
-        Object.assign(editableFilm(current).shots[index], { characterId, visualId, audioId, audioOffset, line: values.get('line').trim() });
+        Object.assign(currentFilm.shots[index], { characterId, visualId, audioId, audioOffset, line: values.get('line').trim() });
       });
       return 'カットを保存しました。';
     });
@@ -618,6 +684,275 @@ function removeFilmJob(jobId) {
     });
     return 'ジョブを削除しました。';
   }, '削除する', true);
+}
+
+'use strict';
+
+const aiClipLengths = [3, 4, 5];
+const walkingDraft = {
+  motion: '一定の速さで画面の左から右へ歩く。左右の足を交互に自然に運び、接地した足を滑らせない。腕と肩は足の動きに合わせて小さく揺れる。輪郭、髪型、衣装は参照画像のまま保つ。',
+  background: '夜の無人駅のホーム。背景と照明は一定に保つ。',
+  camera: '目線の高さから真横の全身を捉える固定カメラ。切り替え、ズーム、手ぶれなし。',
+  seconds: 4,
+};
+
+function aiRequests(project) {
+  return project.aiVideoRequests ?? [];
+}
+
+function restoreAiRequests(requests, project, remap) {
+  validateBackup(uniqueBackupIds(requests));
+  return requests.map(request => {
+    validateBackup(validBackupTextFields(request, 'characterId', 'referenceId', 'motion', 'background', 'camera', 'resultId')
+      && aiClipLengths.includes(request.seconds) && [null, 0, 1, 2].includes(request.shot));
+    const character = project.characters.find(row => row.id === request.characterId);
+    const reference = remap(request.referenceId, ['image']);
+    const resultId = remap(request.resultId, ['video']);
+    return {
+      id: request.id, characterId: character?.id ?? '', referenceId: character?.referenceIds?.includes(reference) ? reference : '',
+      motion: request.motion, background: request.background, camera: request.camera, seconds: request.seconds,
+      resultId, shot: resultId ? request.shot : null,
+    };
+  });
+}
+
+function detachAiAsset(project, assetId) {
+  for (const request of aiRequests(project)) {
+    if (request.referenceId === assetId) request.referenceId = '';
+    if (request.resultId === assetId) {
+      request.resultId = '';
+      request.shot = null;
+    }
+  }
+}
+
+function detachAiCharacter(project, characterId) {
+  for (const request of aiRequests(project)) {
+    if (request.characterId === characterId) {
+      request.characterId = '';
+      request.referenceId = '';
+    }
+  }
+}
+
+function aiPrompt(request, character) {
+  return [
+    `日本の2Dアニメ映画風。長さ ${request.seconds} 秒、16:9。1カット。`,
+    character ? `キャラクター：${character.name}。参照画像の顔、髪型、服装、配色を維持。` : '参照画像の顔、髪型、服装、配色を維持。',
+    `動作：${request.motion}`,
+    request.background && `背景：${request.background}`,
+    request.camera && `カメラ：${request.camera}`,
+  ].filter(Boolean).join('\n');
+}
+
+function aiVideoPage({ project, assets }) {
+  const requests = aiRequests(project);
+  const film = filmOf(project);
+  return `
+    <div class="page-head"><div><p class="page-context">${escapeHtml(project.title)}</p>
+      <h1 id="view-title" tabindex="-1">AI動画生成</h1></div></div>
+    <section class="ai-hero" aria-labelledby="ai-request-heading">
+      <div>
+        <div class="ai-head"><span class="film-offline">生成エンジン未接続</span></div>
+        <h2 id="ai-request-heading">キャラクターから短いカットを作る準備</h2>
+        <p>参照画像と指示を下書きに保存し、外部で作ったMP4を10秒タイムラインに配置できます。指示や素材はこのブラウザに保存されます。</p>
+        <div class="row-actions">${action('下書きを作成', 'ai-draft', '', 'primary')}
+          ${action('歩行の作例から始める', 'ai-walking')}</div>
+      </div>
+    </section>
+    <section class="film-panel ai-result-panel" aria-labelledby="ai-result-heading">
+      <div><h2 id="ai-result-heading">外部MP4をタイムラインへ</h2>
+        <p>生成済み・撮影済みの動画を、歩行、振り向き、表情のいずれかのカットに配置します。</p></div>
+      <div class="row-actions">${action('MP4を配置', 'ai-import', '', 'primary')}
+        <a class="button secondary" href="${href('film', project.id)}">10秒編集を開く</a></div>
+    </section>
+    <section class="film-panel" aria-labelledby="ai-drafts-heading">
+      <div class="section-head"><h2 id="ai-drafts-heading">生成の下書き</h2></div>
+      ${requests.length ? `<div class="film-jobs">${requests.map(request => {
+        const character = project.characters.find(row => row.id === request.characterId);
+        const reference = assets.find(asset => asset.id === request.referenceId && character?.referenceIds?.includes(asset.id));
+        const resultAsset = assets.find(asset => asset.id === request.resultId);
+        const inTimeline = resultAsset && film.shots[request.shot]?.visualId === resultAsset.id;
+        return `<article class="film-shot ai-draft">
+          <div class="ai-draft-header">
+            ${reference ? `<img src="${mediaUrl(reference)}" alt="${escapeHtml(reference.name)}" loading="lazy">` : ''}
+            <div><h3>${escapeHtml(character?.name ?? 'キャラクター未選択')} ・ ${request.seconds}秒</h3>
+              <p>${escapeHtml(reference?.name ?? '参照画像未設定')}</p></div>
+            <span class="film-offline">${resultAsset ? '外部MP4取込済み' : '未送信'}</span>
+          </div>
+          <dl class="ai-draft-details">
+            <div><dt>動作</dt><dd>${escapeHtml(request.motion)}</dd></div>
+            ${request.background ? `<div><dt>背景</dt><dd>${escapeHtml(request.background)}</dd></div>` : ''}
+            ${request.camera ? `<div><dt>カメラ</dt><dd>${escapeHtml(request.camera)}</dd></div>` : ''}
+          </dl>
+          ${resultAsset ? `<p>${escapeHtml(resultAsset.name)}${inTimeline ? ` ・ ${shotLabels[request.shot]}` : ''}</p>` : ''}
+          <div class="row-actions">${action('編集', 'ai-draft', request.id)}${action('指示を表示・コピー', 'ai-prompt', request.id)}
+            ${reference ? `<a class="button secondary" href="${mediaUrl(reference)}" download="${escapeHtml(reference.name)}">参照画像を保存</a>` : ''}
+            ${action('結果のMP4を配置', 'ai-import', request.id)}${action('削除', 'ai-delete', request.id, 'text-danger')}</div>
+        </article>`;
+      }).join('')}</div>` : '<p>下書きがまだありません。</p>'}
+    </section>`;
+}
+
+function editAiDraft(requestId, walking = false) {
+  const { project, assets } = state;
+  const existing = aiRequests(project).find(request => request.id === requestId);
+  if (requestId && !existing) return;
+  const defaults = existing ?? (walking ? { ...walkingDraft, characterId: project.characters[0]?.id } : { seconds: 4 });
+  dialog(existing ? '生成の下書きを編集' : '生成の下書きを作成', `
+    ${filmSelect('characterId', 'キャラクター', project.characters.map(character => [character.id, character.name]), defaults.characterId)}
+    <label class="field">参照画像<select name="referenceId"></select></label>
+    <p id="ai-reference-hint" class="form-hint"></p>
+    <label class="field">動作指示<textarea name="motion" maxlength="800" rows="4" required>${escapeHtml(defaults.motion)}</textarea></label>
+    <label class="field">背景<textarea name="background" maxlength="500" rows="2">${escapeHtml(defaults.background)}</textarea></label>
+    <label class="field">カメラワーク<textarea name="camera" maxlength="500" rows="2">${escapeHtml(defaults.camera)}</textarea></label>
+    ${filmSelect('seconds', '動画の長さ', aiClipLengths.map(seconds => [String(seconds), `${seconds}秒`]), String(defaults.seconds))}`,
+    async values => {
+      const characterId = values.get('characterId');
+      const referenceId = values.get('referenceId');
+      const motion = values.get('motion').trim();
+      const seconds = Number(values.get('seconds'));
+      if (!motion || !aiClipLengths.includes(seconds)) throw new Error('動作指示と動画の長さを指定してください。');
+      await changeProject(project.id, async (current, store) => {
+        const character = current.characters.find(row => row.id === characterId);
+        if (characterId && !character) throw new Error('キャラクターが見つかりません。');
+        if (referenceId && !character?.referenceIds?.includes(referenceId)) throw new Error('キャラクターに登録済みの参照画像を選んでください。');
+        await linkedFilmAsset(store, current.id, referenceId, ['image']);
+        const requests = current.aiVideoRequests ??= [];
+        const fields = { characterId, referenceId, motion, seconds, background: values.get('background').trim(), camera: values.get('camera').trim() };
+        if (existing) {
+          const target = requests.find(row => row.id === requestId);
+          if (!target) throw new Error('下書きが見つかりません。');
+          Object.assign(target, fields);
+        } else requests.push({ id: id(), ...fields, resultId: '', shot: null });
+      });
+      return '下書きを保存しました。';
+    });
+
+  const characterSelect = form.elements.characterId;
+  const references = form.elements.referenceId;
+  const hint = document.getElementById('ai-reference-hint');
+  const populate = selected => {
+    const character = project.characters.find(row => row.id === characterSelect.value);
+    const images = assets.filter(asset => asset.kind === 'image' && character?.referenceIds?.includes(asset.id));
+    references.replaceChildren(new Option('未選択', ''), ...images.map(asset => new Option(asset.name, asset.id)));
+    references.value = images.some(asset => asset.id === selected) ? selected : '';
+    hint.textContent = images.length ? 'カットの出発点になる全身または横顔の画像を選びます。'
+      : '作品の「素材」で画像を追加し、「キャラクター」の参照画像に登録すると選べます。';
+  };
+  populate(defaults.referenceId ?? (walking ? project.characters[0]?.referenceIds?.[0] : ''));
+  characterSelect.addEventListener('change', () => populate(''));
+}
+
+function showAiPrompt(requestId) {
+  const { project } = state;
+  const request = aiRequests(project).find(row => row.id === requestId);
+  if (!request) return;
+  const character = project.characters.find(row => row.id === request.characterId);
+  const prompt = aiPrompt(request, character);
+  const copyable = Boolean(navigator.clipboard?.writeText);
+  dialog('外部ツール用の指示', `
+    <label class="field">指示文<textarea readonly rows="10">${escapeHtml(prompt)}</textarea></label>
+    <p class="form-hint">参照画像は外部ツールで別途選択してください。</p>`,
+    async () => {
+      if (copyable) await navigator.clipboard.writeText(prompt).catch(() => {
+        throw new Error('コピーできませんでした。指示文を長押ししてコピーしてください。');
+      });
+      return copyable ? '指示文をコピーしました。' : '指示文を閉じました。';
+    }, copyable ? 'コピーする' : '閉じる');
+}
+
+function removeAiDraft(requestId) {
+  const { project } = state;
+  if (!aiRequests(project).some(row => row.id === requestId)) return;
+  dialog('下書きを削除', '<p class="form-hint">下書きの指示を削除します。素材やタイムラインはそのまま利用できます。</p>',
+    async () => {
+      await changeProject(project.id, current => {
+        current.aiVideoRequests = aiRequests(current).filter(row => row.id !== requestId);
+      });
+      return '下書きを削除しました。';
+    }, '削除する', true);
+}
+
+async function readImportedMp4(blob) {
+  if (!blob?.size || blob.size > 25_000_000) throw new Error('25 MB以下のMP4ファイルを選択してください。');
+  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+  if (bytes.length < 12 || String.fromCharCode(...bytes.slice(4, 8)) !== 'ftyp') {
+    throw new Error('有効なMP4ファイルを選択してください。');
+  }
+  const mp4 = blob.slice(0, blob.size, 'video/mp4');
+  const url = URL.createObjectURL(mp4);
+  const video = document.createElement('video');
+  video.preload = 'metadata';
+  try {
+    const seconds = await new Promise((resolve, reject) => {
+      const error = () => reject(new Error('このブラウザで読めないMP4です。H.264で保存し直した動画を選んでください。'));
+      const timer = setTimeout(error, 10000);
+      video.onloadedmetadata = () => {
+        clearTimeout(timer);
+        if (video.videoWidth && Number.isFinite(video.duration) && video.duration > 0) resolve(video.duration);
+        else error();
+      };
+      video.onerror = () => {
+        clearTimeout(timer);
+        error();
+      };
+      video.src = url;
+    });
+    return { mp4, seconds };
+  } finally {
+    video.removeAttribute('src');
+    video.load();
+    URL.revokeObjectURL(url);
+  }
+}
+
+function importAiMp4(requestId) {
+  const { project, assets } = state;
+  const film = filmOf(project);
+  const starts = filmShotStarts(film);
+  const request = aiRequests(project).find(row => row.id === requestId);
+  if (requestId && !request) return;
+  const cutOptions = shotLabels.map((label, index) => [String(index), `${label}（${formatFilmSeconds(starts[index + 1] - starts[index])}秒）`]);
+  const existingMp4s = assets.filter(asset => asset.kind === 'video' && (asset.blob.type === 'video/mp4' || /\.mp4$/i.test(asset.name)));
+
+  dialog('外部MP4を配置', `
+    <label class="field">スマホのMP4ファイル<input type="file" name="mp4" accept=".mp4,video/mp4"></label>
+    ${existingMp4s.length ? filmSelect('sourceId', 'または作品内のMP4', assetOptions(existingMp4s, ['video']), '') : ''}
+    ${filmSelect('shot', '配置先のカット', cutOptions, String(request?.shot ?? 0))}
+    <label class="film-check"><input type="checkbox" name="fit">MP4の長さに合わせて各カットの尺を調整</label>
+    <p class="form-hint">25 MBまで。配置先の映像だけを差し替え、元の素材は残します。尺を調整すると他のカットの長さも変わります。動画の元音声はミュートされます。</p>`,
+    async values => {
+      const file = values.get('mp4');
+      const sourceId = values.get('sourceId');
+      const shot = values.get('shot');
+      if (!['0', '1', '2'].includes(shot)) throw new Error('配置先を選択してください。');
+      if (file.size && sourceId) throw new Error('スマホのファイルか作品内のMP4のどちらかを選択してください。');
+      const source = existingMp4s.find(asset => asset.id === sourceId);
+      const { mp4, seconds } = await readImportedMp4(file.size ? file : source?.blob);
+      const index = Number(shot);
+
+      await changeProject(project.id, async (current, store) => {
+        const currentFilm = editableFilm(current);
+        const target = aiRequests(current).find(row => row.id === requestId);
+        if (requestId && !target) throw new Error('下書きが見つかりません。');
+        if (values.has('fit')) fitFilmCut(currentFilm, index, seconds);
+
+        let videoId = source?.id;
+        if (videoId) await linkedFilmAsset(store, current.id, videoId, ['video']);
+        else {
+          videoId = id();
+          await result(store.add({
+            id: videoId, projectId: current.id, kind: 'video', name: file.name, blob: mp4, createdAt: Date.now(),
+          }));
+        }
+        currentFilm.shots[index].visualId = videoId;
+        if (target) Object.assign(target, { resultId: videoId, shot: index });
+      });
+
+      location.hash = href('film', project.id);
+      return `${shotLabels[index]}のカットにMP4を配置しました。`;
+    }, 'タイムラインに配置');
 }
 
 'use strict';
@@ -768,8 +1103,8 @@ function drawFilmSubtitle(ctx, line) {
 }
 
 function drawFilmFrame(player, time, playing = false) {
-  const index = time < 3 ? 0 : time < 6 ? 1 : 2;
-  const localTime = time - shotStarts[index];
+  const index = time < player.starts[1] ? 0 : time < player.starts[2] ? 1 : 2;
+  const localTime = time - player.starts[index];
   const shot = player.film.shots[index];
   const ctx = player.ctx;
   const clip = player.clips.get(index);
@@ -848,8 +1183,9 @@ function loadFilmClip(player, index, asset) {
 
 function mountFilmPreview({ project, assets }) {
   const canvas = document.getElementById('film-canvas');
+  const film = filmOf(project);
   const player = {
-    canvas, ctx: canvas.getContext('2d'), film: filmOf(project), assets: new Map(assets.map(asset => [asset.id, asset])),
+    canvas, ctx: canvas.getContext('2d'), film, starts: filmShotStarts(film), assets: new Map(assets.map(asset => [asset.id, asset])),
     range: document.getElementById('film-time'), clock: document.getElementById('film-clock'),
     status: document.getElementById('film-status'), download: document.getElementById('film-download'),
     clips: new Map(), urls: [], activeVideo: null, time: 0, abort: null, error: null, outputUrl: '',
@@ -958,9 +1294,9 @@ async function scheduleFilmAudio(player, context, from, destination) {
     const now = context.currentTime;
     return loaded.flatMap((buffer, index) => {
       if (!buffer) return [];
-      const start = shotStarts[index] + player.film.shots[index].audioOffset;
+      const start = player.starts[index] + player.film.shots[index].audioOffset;
       const offset = Math.max(0, from - start);
-      const duration = Math.min(shotStarts[index + 1] - Math.max(from, start), buffer.duration - offset);
+      const duration = Math.min(player.starts[index + 1] - Math.max(from, start), buffer.duration - offset);
       if (duration <= 0) return [];
       const node = context.createBufferSource();
       node.buffer = buffer;
@@ -1083,13 +1419,15 @@ const sample = {
 const views = {
   works: { label: '作品一覧', icon: 'works' },
   film: { label: '10秒編集', icon: 'film' },
+  ai: { label: 'AI動画生成', mobileLabel: 'AI動画', icon: 'ai' },
   scenes: { label: 'シーン管理', icon: 'scenes', unit: 'シーン' },
-  characters: { label: 'キャラクター', title: 'キャラクター設定', icon: 'characters', unit: '人' },
+  characters: { label: 'キャラクター', mobileLabel: '人物', title: 'キャラクター設定', icon: 'characters', unit: '人' },
   boards: { label: '絵コンテ', icon: 'boards', unit: 'カット' },
   assets: { label: '素材', title: '素材アップロード', icon: 'assets', unit: '件' },
 };
 
 const paths = {
+  ai: '<rect x="3" y="6" width="13" height="13" rx="2"/><path d="m8 10 4 2.5L8 15ZM19 3v6m-3-3h6"/>',
   film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4Z"/>',
   works: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M8 6l2-3m4 3 2-3"/>',
   scenes: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8m-8 3h5"/>',
@@ -1216,10 +1554,10 @@ function href(view, projectId) {
   return `#/${view}/${projectId}`;
 }
 
-function navigation(view, project) {
+function navigation(view, project, mobile = false) {
   return Object.entries(views).map(([key, config]) => `
-    <a class="nav-link" href="${href(key, project.id)}"${key === view ? ' aria-current="page"' : ''}>
-      ${icon(config.icon)}<span>${config.label}</span>
+    <a class="nav-link" href="${href(key, project.id)}"${mobile && config.mobileLabel ? ` aria-label="${config.label}"` : ''}${key === view ? ' aria-current="page"' : ''}>
+      ${icon(config.icon)}<span>${mobile ? config.mobileLabel ?? config.label : config.label}</span>
     </a>`).join('');
 }
 
@@ -1258,7 +1596,9 @@ function worksPage({ project, projects, assets }) {
         <a class="tool" href="${href(key, project.id)}">
           <span class="tile-icon">${icon(config.icon)}</span>
           <span class="tool-end"><span><strong>${config.label}</strong>
-            <small>${key === 'film' ? '3カット・プレビュー・書き出し' : `${(key === 'assets' ? assets : project[key]).length} ${config.unit}`}</small></span>${icon('arrow')}</span>
+            <small>${key === 'film' ? '3カット・プレビュー・書き出し'
+              : key === 'ai' ? '生成の下書き・MP4取り込み'
+              : `${(key === 'assets' ? assets : project[key]).length} ${config.unit}`}</small></span>${icon('arrow')}</span>
         </a>`).join('')}
       </div>
     </section>
@@ -1356,7 +1696,7 @@ function assetsPage({ project, assets }) {
     </article>`).join('')}</div>` : empty('スマホから画像・音声・動画を追加できます。1ファイル25 MBまで。'));
 }
 
-const screens = { works: worksPage, film: filmPage, scenes: scenesPage, characters: charactersPage, boards: boardsPage, assets: assetsPage };
+const screens = { works: worksPage, film: filmPage, ai: aiVideoPage, scenes: scenesPage, characters: charactersPage, boards: boardsPage, assets: assetsPage };
 
 async function render(focusHeading = false) {
   if (!database) return;
@@ -1380,9 +1720,8 @@ async function render(focusHeading = false) {
   for (const url of oldUrls.values()) URL.revokeObjectURL(url);
 
   state = { ...data, view };
-  const nav = navigation(view, project);
-  document.getElementById('desktop-nav').innerHTML = nav;
-  document.getElementById('mobile-nav').innerHTML = nav;
+  document.getElementById('desktop-nav').innerHTML = navigation(view, project);
+  document.getElementById('mobile-nav').innerHTML = navigation(view, project, true);
   document.getElementById('active-work').innerHTML = `<div class="active-tile"><span>選択中の作品</span><strong>${escapeHtml(project.title)}</strong></div>`;
   document.getElementById('breadcrumb').innerHTML = `<a href="${href('works', project.id)}">スタジオ</a><span class="crumb-divider">/</span><strong>${views[view].label}</strong>`;
   main.setAttribute('aria-busy', 'false');
@@ -1529,7 +1868,7 @@ function removeItem(view, itemId) {
   const item = (view === 'assets' ? assets : project[view]).find(entry => entry.id === itemId);
   if (!item) return;
   const details = view === 'scenes' ? '関連する絵コンテのカットは残り、シーンの関連付けが解除されます。'
-    : view === 'assets' ? '絵コンテ、参照画像、テストシーンからの関連付けが解除されます。' : '';
+    : view === 'assets' ? '絵コンテ、参照画像、テストシーン、生成の下書きからの関連付けが解除されます。' : '';
   dialog(`${itemNames[view]}を削除`, `<p class="form-hint">「${escapeHtml(item.title ?? item.name)}」を削除します。${details}</p>`,
     async () => {
       await changeProject(project.id, async (current, store) => {
@@ -1537,14 +1876,16 @@ function removeItem(view, itemId) {
           await result(store.delete(itemId));
           for (const board of current.boards) if (board.imageId === itemId) board.imageId = '';
           detachFilmAsset(current, itemId);
+          detachAiAsset(current, itemId);
           return;
         }
         current[view] = current[view].filter(entry => entry.id !== itemId);
         if (view === 'scenes') {
           for (const board of current.boards) if (board.sceneId === itemId) board.sceneId = '';
         }
-        if (view === 'characters' && current.film) {
-          for (const shot of current.film.shots) if (shot.characterId === itemId) shot.characterId = '';
+        if (view === 'characters') {
+          for (const shot of current.film?.shots ?? []) if (shot.characterId === itemId) shot.characterId = '';
+          detachAiCharacter(current, itemId);
         }
       });
       return `${itemNames[view]}を削除しました。`;
@@ -1607,6 +1948,10 @@ document.addEventListener('click', async event => {
     if (!state) return;
     const { view } = state;
     if (verb === 'backup-import') importBackup();
+    else if (verb === 'ai-draft' || verb === 'ai-walking') editAiDraft(itemId, verb === 'ai-walking');
+    else if (verb === 'ai-prompt') showAiPrompt(itemId);
+    else if (verb === 'ai-delete') removeAiDraft(itemId);
+    else if (verb === 'ai-import') importAiMp4(itemId);
     else if (verb === 'film-references') editCharacterReferences(itemId);
     else if (verb === 'film-shot') editFilmShot(Number(itemId));
     else if (verb === 'film-cues') editFilmCues(Number(itemId));
