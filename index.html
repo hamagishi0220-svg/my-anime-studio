@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f8f6f1">
   <title>MY ANIME STUDIO</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-mMnQHHTIcbd/aDXLPouF9Fl0BDSgz1kcnnr9IhzqZEM='; style-src 'sha256-kHN9jhK7NHy8P1dzpCtEm8WevSjzMJ/9kDLGE5x32YU='; img-src blob:; media-src blob:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lxs3dwi713xet+N/y/arRULwnDzhE7hYjXcIUKquFh4='; style-src 'sha256-MCV1mg80gCdpjpfjOEwcpSXsUXeRoFMQGRAc4YdicB8='; img-src blob:; media-src blob:; connect-src https://prithivmlmods-wan2-2-fast.hf.space; base-uri 'none'; form-action 'none'">
   <style>
 :root {
   color-scheme: light;
@@ -203,6 +203,13 @@ dialog::backdrop { background: #21182a91; }
 .ai-draft-details > div { display: grid; grid-template-columns: 4.25em minmax(0, 1fr); gap: 5px; }
 .ai-draft-details dt { color: var(--muted); font-weight: 650; }
 .ai-draft-details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-hero #ai-provider-note { margin-bottom: 12px; }
+.ai-candidate-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 13px; }
+.ai-candidate { min-width: 0; }
+.ai-candidate video, .wan-reference { display: block; width: 100%; background: #201c30; border-radius: 8px; object-fit: contain; }
+.ai-candidate video { aspect-ratio: 16 / 9; margin-bottom: 10px; }
+.wan-reference { max-height: 36vh; }
+@media (max-width: 580px) { .ai-candidate-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -324,15 +331,17 @@ async function parseBackup(file) {
     const blob = file.slice(offset, offset + size, type);
     offset += size;
     const assetId = id();
-    assetIds.set(oldId, { assetId, projectId, kind });
-    return { id: assetId, projectId: copies.get(projectId), kind, name, blob, createdAt };
+    const candidate = asset.aiCandidate === undefined ? null : restoreAiCandidate(asset.aiCandidate, kind);
+    assetIds.set(oldId, { assetId, projectId, kind, library: candidate?.adopted !== false });
+    return { id: assetId, projectId: copies.get(projectId), kind, name, blob, createdAt,
+      ...(candidate ? { aiCandidate: candidate } : {}) };
   });
 
   validateBackup(offset === file.size);
   const restoredProjects = projects.map(project => {
     const remap = (key, kinds) => {
       const asset = assetIds.get(key);
-      return asset?.projectId === project.id && kinds.includes(asset.kind) ? asset.assetId : '';
+      return asset?.projectId === project.id && asset.library && kinds.includes(asset.kind) ? asset.assetId : '';
     };
     validateBackup(validBackupTextFields(project, 'title', 'genre', 'summary')
       && uniqueBackupIds(project.scenes) && uniqueBackupIds(project.characters) && uniqueBackupIds(project.boards)
@@ -480,7 +489,7 @@ function filmSelect(name, label, options, value, emptyLabel = '未選択') {
 async function linkedFilmAsset(store, projectId, assetId, kinds) {
   if (!assetId) return '';
   const asset = await result(store.get(assetId));
-  if (asset?.projectId !== projectId || !kinds.includes(asset.kind)) {
+  if (asset?.projectId !== projectId || !kinds.includes(asset.kind) || asset.aiCandidate?.adopted === false) {
     throw new Error('選んだ素材が見つかりません。もう一度選び直してください。');
   }
   return assetId;
@@ -688,13 +697,367 @@ function removeFilmJob(jobId) {
 
 'use strict';
 
+function restoreAiCandidate(candidate, kind) {
+  validateBackup(kind === 'video' && candidate && ['file', 'wan'].includes(candidate.origin)
+    && typeof candidate.adopted === 'boolean' && Number.isFinite(candidate.seconds) && candidate.seconds > 0
+    && (candidate.draftId === '' || validBackupId(candidate.draftId)));
+  return { origin: candidate.origin, adopted: candidate.adopted, seconds: candidate.seconds, draftId: candidate.draftId };
+}
+
+function aiCandidatePanel(project, candidates) {
+  const requests = new Set(aiRequests(project).map(request => request.id));
+  return `<section class="film-panel" id="ai-candidates" aria-labelledby="ai-candidates-heading">
+    <h2 id="ai-candidates-heading">候補動画</h2>
+    <p>試写で足の接地、顔や衣装、背景の安定を確認し、使う候補を選びます。</p>
+    ${candidates.length ? `<div class="ai-candidate-grid">${candidates.map(asset => {
+      const candidate = asset.aiCandidate;
+      return `<article class="film-shot ai-candidate">
+        <video src="${mediaUrl(asset)}" controls playsinline preload="none" aria-label="${escapeHtml(asset.name)}の試写"></video>
+        <h3>${escapeHtml(asset.name)}</h3>
+        <p>${candidate.seconds.toFixed(2)}秒 ・ ${candidate.origin === 'wan' ? 'Wan 2.2' : 'MP4取り込み'} ・ ${candidate.adopted ? '素材に保存済み' : '採用待ち'}</p>
+        <div class="row-actions">
+          ${candidate.adopted ? action('10秒編集に配置', 'ai-candidate-place', asset.id, 'primary')
+            : action('採用して素材に保存', 'ai-candidate-adopt', asset.id, 'primary')}
+          ${requests.has(candidate.draftId) ? action('再生成', 'ai-generate', candidate.draftId) : ''}
+          ${action(candidate.adopted ? '候補一覧から外す' : '候補を削除', 'ai-candidate-remove', asset.id, 'text-danger')}
+        </div>
+      </article>`;
+    }).join('')}</div>` : '<p>生成結果または取り込んだMP4がここに表示されます。</p>'}
+  </section>`;
+}
+
+async function addAiCandidate(projectId, draftId, origin, name, video) {
+  await changeProject(projectId, (project, store) => {
+    const draft = aiRequests(project).find(request => request.id === draftId);
+    return result(store.add({
+      id: id(), projectId, name, kind: 'video', blob: video.mp4, createdAt: Date.now(),
+      aiCandidate: { draftId: draft?.id ?? '', origin, adopted: false, seconds: video.seconds },
+    }));
+  });
+}
+
+function importAiCandidate(draftId) {
+  const { project, assets } = state;
+  if (draftId && !aiRequests(project).some(request => request.id === draftId)) return;
+  const videos = assets.filter(asset => asset.kind === 'video' && (asset.blob.type === 'video/mp4' || /\.mp4$/i.test(asset.name)));
+  dialog('MP4を候補に追加', `
+    <label class="field">スマホのMP4ファイル<input type="file" name="mp4" accept=".mp4,video/mp4"></label>
+    ${videos.length ? filmSelect('sourceId', 'または作品内のMP4', assetOptions(videos, ['video']), '') : ''}
+    <p class="form-hint">25 MBまで。追加後、候補動画の一覧で再生できます。</p>`,
+    async values => {
+      const file = values.get('mp4');
+      const source = videos.find(asset => asset.id === values.get('sourceId'));
+      if (file.size && source) throw new Error('スマホのファイルか作品内のMP4のどちらかを選択してください。');
+      const video = await readImportedMp4(file.size ? file : source?.blob);
+      await addAiCandidate(project.id, draftId, 'file', file.size ? file.name : source.name, video);
+      return '候補に追加しました。「候補動画」で試写できます。';
+    }, '候補に追加');
+}
+
+async function readCandidate(store, projectId, candidateId, adopted = false) {
+  const asset = await result(store.get(candidateId));
+  if (asset?.projectId !== projectId || !asset.aiCandidate || (adopted && !asset.aiCandidate.adopted)) {
+    throw new Error('この候補は利用できません。');
+  }
+  return asset;
+}
+
+async function adoptAiCandidate(candidateId) {
+  await changeProject(state.project.id, async (project, store) => {
+    const asset = await readCandidate(store, project.id, candidateId);
+    asset.aiCandidate.adopted = true;
+    await result(store.put(asset));
+  });
+  await render();
+  notify('採用した動画を素材に保存しました。');
+}
+
+function placeAiCandidate(candidateId) {
+  const project = state.project;
+  const asset = state.candidates.find(candidate => candidate.id === candidateId);
+  if (!asset?.aiCandidate.adopted) return;
+  const film = filmOf(project);
+  const starts = filmShotStarts(film);
+  const request = aiRequests(project).find(row => row.id === asset.aiCandidate.draftId);
+  const suggestedCut = { turn: 1, talk: 2 }[request?.actionPreset] ?? 0;
+  const options = shotLabels.map((label, index) => [String(index),
+    `${label}（${formatFilmSeconds(starts[index + 1] - starts[index])}秒）`]);
+  dialog('10秒編集に配置', `
+    ${filmSelect('shot', '配置先のカット', options, String(request?.shot ?? suggestedCut))}
+    <label class="film-check"><input type="checkbox" name="fit">MP4の長さに合わせて各カットの尺を調整</label>
+    <p class="form-hint">映像だけを差し替えます。前の素材、音声、字幕は保存されます。尺を調整すると他のカットの長さも変わります。</p>`,
+    async values => {
+      const selected = values.get('shot');
+      if (!['0', '1', '2'].includes(selected)) throw new Error('配置先を選択してください。');
+      const index = Number(selected);
+      await changeProject(project.id, async (current, store) => {
+        const selectedAsset = await readCandidate(store, current.id, candidateId, true);
+        const currentFilm = editableFilm(current);
+        if (values.has('fit')) fitFilmCut(currentFilm, index, selectedAsset.aiCandidate.seconds);
+        currentFilm.shots[index].visualId = selectedAsset.id;
+        const target = aiRequests(current).find(row => row.id === selectedAsset.aiCandidate.draftId);
+        if (target) Object.assign(target, { resultId: selectedAsset.id, shot: index });
+      });
+      location.hash = href('film', project.id);
+      return `${shotLabels[index]}のカットに配置しました。`;
+    }, 'タイムラインに配置');
+}
+
+function removeAiCandidate(candidateId) {
+  const projectId = state.project.id;
+  const asset = state.candidates.find(candidate => candidate.id === candidateId);
+  if (!asset) return;
+  const adopted = asset.aiCandidate.adopted;
+  dialog(adopted ? '候補一覧から外す' : '候補を削除', adopted
+    ? '<p class="form-hint">素材として保存した動画は引き続き使えます。</p>'
+    : '<p class="form-hint">試写用の動画を削除します。</p>',
+  async () => {
+    await changeProject(projectId, async (project, store) => {
+      const current = await readCandidate(store, project.id, candidateId);
+      if (current.aiCandidate.adopted || adopted) {
+        delete current.aiCandidate;
+        await result(store.put(current));
+      } else await result(store.delete(candidateId));
+    });
+    return adopted ? '候補一覧から外しました。' : '候補を削除しました。';
+  }, adopted ? '一覧から外す' : '削除する', true);
+}
+
+'use strict';
+
+const wanProviderOrigin = 'https://prithivmlmods-wan2-2-fast.hf.space';
+const wanProviderApi = wanProviderOrigin + '/gradio_api';
+const wanProviderPage = 'https://huggingface.co/spaces/prithivMLmods/Wan2.2-Fast';
+const wanMessageLimit = 35_000_000;
+const wanReports = new Map();
+let wanActiveRun;
+
+function aiProviderStatus(projectId) {
+  const message = wanReports.get(projectId) ?? '操作時に無料枠を確認します。満枠・停止時はMP4を取り込めます。';
+  return `<div class="ai-head"><span class="film-offline">Wan 2.2 外部接続・試験運用</span></div>
+    <p id="ai-provider-note" role="status">${escapeHtml(message)}</p>`;
+}
+
+function setWanReport(projectId, message) {
+  wanReports.set(projectId, message);
+  if (state?.project.id === projectId && state.view === 'ai') {
+    const note = document.getElementById('ai-provider-note');
+    if (note) note.textContent = message;
+  }
+}
+
+function wanRequest(path, signal, options) {
+  return fetch(wanProviderApi + path, {
+    ...options, mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer',
+    redirect: 'error', signal,
+  });
+}
+
+function wanHttpError(status) {
+  if ([401, 403].includes(status)) {
+    return new Error('公開の匿名生成が利用できません。提供側の利用条件を確認するか、MP4を取り込んでください。');
+  }
+  if (status === 429) return new Error('無料枠の上限に達しました。枠の更新を待つか、MP4を取り込んでください。');
+  return new Error(`生成サービスに接続できませんでした（HTTP ${status}）。MP4の取り込みは利用できます。`);
+}
+
+function parseWanEvent(event) {
+  const lines = event.split(/\r?\n/);
+  const kind = lines.find(line => line.startsWith('event:'))?.slice(6).trim();
+  if (kind === 'error') {
+    const detail = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5)).join('\n');
+    if (/quota|rate limit|free limit/i.test(detail)) throw wanHttpError(429);
+    throw new Error('外部サービスで生成が失敗しました。無料枠や混雑の状況を確認するか、MP4を取り込んでください。');
+  }
+  if (kind !== 'complete') return null;
+  const data = JSON.parse(lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n'));
+  const encoded = data?.[0]?.video;
+  const prefix = 'data:video/mp4;base64,';
+  if (typeof encoded !== 'string' || !encoded.startsWith(prefix)) throw new Error('外部サービスからMP4が返りませんでした。');
+  const base64 = encoded.slice(prefix.length);
+  if (base64.length > 33_333_336) throw new Error('生成結果が25 MBの素材上限を超えています。');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: 'video/mp4' });
+}
+
+async function readWanEvents(response) {
+  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
+    throw new Error('外部サービスの待ち行列に接続できませんでした。');
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = '';
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      pending += decoder.decode(value, { stream: !done });
+      if (pending.length > wanMessageLimit) throw new Error('生成結果が25 MBの素材上限を超えています。');
+      let separator = /\r?\n\r?\n/.exec(pending);
+      while (separator) {
+        const blob = parseWanEvent(pending.slice(0, separator.index));
+        if (blob) return blob;
+        pending = pending.slice(separator.index + separator[0].length);
+        separator = /\r?\n\r?\n/.exec(pending);
+      }
+      if (done) {
+        const blob = parseWanEvent(pending);
+        if (blob) return blob;
+        throw new Error('動画を受け取る前に外部接続が終了しました。');
+      }
+    }
+  } finally {
+    void reader.cancel().catch(() => {});
+  }
+}
+
+function dataImage(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('送信画像を読み込めません。'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function runWanGeneration({ projectId, draftId, prompt, seconds, image }) {
+  if (wanActiveRun) throw new Error('別の生成結果を待っています。');
+  const controller = new AbortController();
+  wanActiveRun = controller;
+  const timer = setTimeout(() => controller.abort(), 150000);
+  setWanReport(projectId, '外部サービスに送信しています…');
+  try {
+    const imageData = await dataImage(image);
+    const args = [imageData, prompt, 4, aiAvoid, seconds, 1, 1, 0, true];
+    const queued = await wanRequest('/call/generate_video', controller.signal, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: args }),
+    });
+    if (!queued.ok) throw wanHttpError(queued.status);
+    const reply = await queued.json();
+    if (typeof reply.event_id !== 'string' || !/^[\w-]{1,128}$/.test(reply.event_id)) throw new Error('外部サービスが生成依頼を受け付けませんでした。');
+    setWanReport(projectId, '無料GPUの待ち行列・生成結果を待っています。このタブを開いたままにしてください。');
+    const events = await wanRequest('/call/generate_video/' + reply.event_id, controller.signal);
+    if (!events.ok) throw wanHttpError(events.status);
+    const video = await readImportedMp4(await readWanEvents(events));
+    await addAiCandidate(projectId, draftId, 'wan', `wan22-${Date.now()}.mp4`, video);
+    setWanReport(projectId, '無料生成に成功しました。「候補動画」で試写できます。');
+    const stillOnPage = () => state?.project.id === projectId && state.view === 'ai';
+    if (stillOnPage()) {
+      if (editor.open) editor.addEventListener('close', () => {
+        if (stillOnPage()) void render().catch(error => notify(report(error)));
+      }, { once: true });
+      else await render();
+    }
+  } catch (error) {
+    setWanReport(projectId, controller.signal.aborted
+      ? '結果の待機時間を超えました。自動で再送信しません。MP4を取り込むこともできます。'
+      : error instanceof TypeError ? '外部サービスに接続できません。通信や無料枠を確認してください。'
+      : (error?.name === 'QuotaExceededError' ? 'ブラウザの空き容量が不足しています。' : report(error)));
+  } finally {
+    clearTimeout(timer);
+    wanActiveRun = undefined;
+  }
+}
+
+async function openWanImage(asset) {
+  const url = URL.createObjectURL(asset.blob);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    return image;
+  } catch {
+    throw new Error('参照画像または背景画像を読み込めません。PNGかJPEGを選んでください。');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function drawWanImage(context, image, width, height, cover = false) {
+  const scaleX = width / image.naturalWidth;
+  const scaleY = height / image.naturalHeight;
+  const scale = cover ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+  const w = scale * image.naturalWidth;
+  const h = scale * image.naturalHeight;
+  context.drawImage(image, (context.canvas.width - w) / 2, (context.canvas.height - h) / 2, w, h);
+}
+
+function hasTransparentArea(image) {
+  const sample = document.createElement('canvas');
+  sample.width = sample.height = 50;
+  const context = sample.getContext('2d');
+  context.drawImage(image, 0, 0, 50, 50);
+  const pixels = context.getImageData(0, 0, 50, 50).data;
+  let transparent = 0;
+  for (let index = 3; index < pixels.length; index += 4) if (pixels[index] < 16) transparent += 1;
+  return transparent >= 125 && transparent < 2375;
+}
+
+async function buildWanReference(reference, background) {
+  const [subject, backdrop] = await Promise.all([openWanImage(reference), background && openWanImage(background)]);
+  const canvas = document.createElement('canvas');
+  canvas.width = 832;
+  canvas.height = 480;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#202334';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (backdrop) {
+    if (!hasTransparentArea(subject)) {
+      throw new Error('背景画像を重ねるには透明部分のあるキャラクター画像を選んでください。背景付きの参照画像を使う場合は、背景画像の指定を解除できます。');
+    }
+    drawWanImage(context, backdrop, canvas.width, canvas.height, true);
+    drawWanImage(context, subject, canvas.width * .82, canvas.height * .90);
+  } else drawWanImage(context, subject, canvas.width, canvas.height);
+  return new Promise((resolve, reject) => canvas.toBlob(blob => {
+    if (blob) resolve(blob);
+    else reject(new Error('送信画像の作成に失敗しました。'));
+  }, 'image/png'));
+}
+
+async function showWanGenerate(draftId) {
+  if (wanActiveRun) throw new Error('別の生成結果を待っています。');
+  const { project, assets } = state;
+  const request = aiRequests(project).find(row => row.id === draftId);
+  if (!request) return;
+  const character = project.characters.find(row => row.id === request.characterId);
+  const reference = assets.find(asset => asset.id === request.referenceId && character?.referenceIds?.includes(asset.id));
+  const background = assets.find(asset => asset.id === request.backgroundId);
+  if (!reference) throw new Error('下書きを編集し、キャラクターに登録済みの参照画像を選んでください。');
+  const locationBefore = location.hash;
+  const image = await buildWanReference(reference, background);
+  if (editor.open || location.hash !== locationBefore || state?.project.id !== project.id) return;
+  const url = URL.createObjectURL(image);
+  const prompt = aiPrompt(request, character);
+  dialog('外部サービスに生成を依頼', `
+    <img class="wan-reference" src="${url}" alt="外部に送る最初のフレーム">
+    <label class="field">送信する指示<textarea readonly rows="5">${escapeHtml(prompt)}</textarea></label>
+    <p class="form-hint">画像1枚と上の指示を Hugging Face のコミュニティSpaceに送信します。無料枠の空きや出力品質は提供側に依存します。 <a href="${wanProviderPage}" target="_blank" rel="noopener noreferrer">送信先を確認</a></p>
+    <label class="film-check"><input type="checkbox" name="consent" required>この画像と指示を外部サービスに送信する</label>`,
+    async values => {
+      if (!values.has('consent')) throw new Error('送信する画像と指示を確認してください。');
+      if (wanActiveRun) throw new Error('別の生成結果を待っています。');
+      void runWanGeneration({ projectId: project.id, draftId, prompt, seconds: request.seconds, image });
+      return '外部生成をリクエストしました。';
+    }, '無料枠で生成を依頼');
+  editor.addEventListener('close', () => URL.revokeObjectURL(url), { once: true });
+}
+
+'use strict';
+
 const aiClipLengths = [3, 4, 5];
-const walkingDraft = {
-  motion: '一定の速さで画面の左から右へ歩く。左右の足を交互に自然に運び、接地した足を滑らせない。腕と肩は足の動きに合わせて小さく揺れる。輪郭、髪型、衣装は参照画像のまま保つ。',
-  background: '夜の無人駅のホーム。背景と照明は一定に保つ。',
-  camera: '目線の高さから真横の全身を捉える固定カメラ。切り替え、ズーム、手ぶれなし。',
-  seconds: 4,
+const aiActions = {
+  walk: ['歩く', '一定の速さで画面の左から右へ歩く。上体はまっすぐに近く保ち、かかとからつま先への接地に合わせて体重を移す。腕と脚は逆側が自然に動き、接地した足は地面の同じ位置を保つ。'],
+  turn: ['振り向く', '奥の物音に気づく。目線、頭、肩の順でゆっくり後方を向き、重心が安定したところで静止する。髪や衣服は本体の動きより少し遅れて落ち着く。'],
+  sit: ['座る', '既にある椅子の位置を確認し、足裏をつけたまま腰と膝を曲げる。腰が座面に触れるまで自然に減速し、姿勢が安定してから手を膝に置く。'],
+  stand: ['立つ', '座った姿勢から足を床につけ、体重を足に乗せてゆっくり立つ。膝を伸ばしたあと肩の力を抜き、両足で姿勢を保つ。'],
+  run: ['走る', '画面の左から右に自然に加速する。上体の傾きは軽く、左右の腕と脚が交互に動く。接地と短い浮遊のリズムを繰り返し、足を地面に滑らせない。'],
+  talk: ['話す', '相手に短く穏やかに話しかける。口とあごを控えめに動かし、視線を保ちながら一度だけ小さくうなずく。口元以外の輪郭を維持する。'],
 };
+const aiAngles = {
+  profile: '真横・全身', front: '正面・全身', threeQuarter: '斜め45度・全身', close: '正面・胸から上',
+};
+const aiAvoid = '強い前傾、足の滑り、足が浮く、余分な手足、顔や髪や衣装の変形、背景や床の歪み、急なカメラ移動、カット切替、字幕。';
 
 function aiRequests(project) {
   return project.aiVideoRequests ?? [];
@@ -711,6 +1074,9 @@ function restoreAiRequests(requests, project, remap) {
     return {
       id: request.id, characterId: character?.id ?? '', referenceId: character?.referenceIds?.includes(reference) ? reference : '',
       motion: request.motion, background: request.background, camera: request.camera, seconds: request.seconds,
+      actionPreset: Object.hasOwn(aiActions, request.actionPreset) ? request.actionPreset : '',
+      angle: Object.hasOwn(aiAngles, request.angle) ? request.angle : '',
+      backgroundId: remap(request.backgroundId, ['image']),
       resultId, shot: resultId ? request.shot : null,
     };
   });
@@ -719,6 +1085,7 @@ function restoreAiRequests(requests, project, remap) {
 function detachAiAsset(project, assetId) {
   for (const request of aiRequests(project)) {
     if (request.referenceId === assetId) request.referenceId = '';
+    if (request.backgroundId === assetId) request.backgroundId = '';
     if (request.resultId === assetId) {
       request.resultId = '';
       request.shot = null;
@@ -737,15 +1104,19 @@ function detachAiCharacter(project, characterId) {
 
 function aiPrompt(request, character) {
   return [
-    `日本の2Dアニメ映画風。長さ ${request.seconds} 秒、16:9。1カット。`,
-    character ? `キャラクター：${character.name}。参照画像の顔、髪型、服装、配色を維持。` : '参照画像の顔、髪型、服装、配色を維持。',
+    `日本の2D手描きアニメ映画風の単一カット。長さ ${request.seconds} 秒、16:9。`,
+    character ? `キャラクター：${character.name}。` : '',
+    '参照画像と同じ顔、輪郭、髪型、衣装、体格、配色を全フレームで保つ。',
     `動作：${request.motion}`,
     request.background && `背景：${request.background}`,
-    request.camera && `カメラ：${request.camera}`,
+    request.angle && `カメラアングル：${aiAngles[request.angle]}`,
+    request.camera && `カメラワーク：${request.camera}`,
+    '元の背景・床・照明の位置関係を保つ。指定がなければ固定カメラ。',
+    `避けること：${aiAvoid}`,
   ].filter(Boolean).join('\n');
 }
 
-function aiVideoPage({ project, assets }) {
+function aiVideoPage({ project, assets, candidates }) {
   const requests = aiRequests(project);
   const film = filmOf(project);
   return `
@@ -753,17 +1124,18 @@ function aiVideoPage({ project, assets }) {
       <h1 id="view-title" tabindex="-1">AI動画生成</h1></div></div>
     <section class="ai-hero" aria-labelledby="ai-request-heading">
       <div>
-        <div class="ai-head"><span class="film-offline">生成エンジン未接続</span></div>
-        <h2 id="ai-request-heading">キャラクターから短いカットを作る準備</h2>
-        <p>参照画像と指示を下書きに保存し、外部で作ったMP4を10秒タイムラインに配置できます。指示や素材はこのブラウザに保存されます。</p>
+        ${aiProviderStatus(project.id)}
+        <h2 id="ai-request-heading">キャラクターから短いカットを作る</h2>
+        <p>参照画像と日本語の指示から候補を作り、試写してから素材に採用します。無料外部生成の空きがないときはMP4を取り込めます。</p>
         <div class="row-actions">${action('下書きを作成', 'ai-draft', '', 'primary')}
           ${action('歩行の作例から始める', 'ai-walking')}</div>
       </div>
     </section>
     <section class="film-panel ai-result-panel" aria-labelledby="ai-result-heading">
-      <div><h2 id="ai-result-heading">外部MP4をタイムラインへ</h2>
-        <p>生成済み・撮影済みの動画を、歩行、振り向き、表情のいずれかのカットに配置します。</p></div>
-      <div class="row-actions">${action('MP4を配置', 'ai-import', '', 'primary')}
+      <div><h2 id="ai-result-heading">外部MP4を候補へ</h2>
+        <p>スマホのMP4や作品内のMP4を取り込み、再生してから採用できます。</p></div>
+      <div class="row-actions">${action('MP4を候補に追加', 'ai-candidate-import', '', 'primary')}
+        ${action('候補動画を見る', 'ai-candidate-scroll')}
         <a class="button secondary" href="${href('film', project.id)}">10秒編集を開く</a></div>
     </section>
     <section class="film-panel" aria-labelledby="ai-drafts-heading">
@@ -771,38 +1143,52 @@ function aiVideoPage({ project, assets }) {
       ${requests.length ? `<div class="film-jobs">${requests.map(request => {
         const character = project.characters.find(row => row.id === request.characterId);
         const reference = assets.find(asset => asset.id === request.referenceId && character?.referenceIds?.includes(asset.id));
+        const background = assets.find(asset => asset.id === request.backgroundId);
         const resultAsset = assets.find(asset => asset.id === request.resultId);
         const inTimeline = resultAsset && film.shots[request.shot]?.visualId === resultAsset.id;
+        const hasCandidates = candidates.some(asset => asset.aiCandidate.draftId === request.id);
         return `<article class="film-shot ai-draft">
           <div class="ai-draft-header">
             ${reference ? `<img src="${mediaUrl(reference)}" alt="${escapeHtml(reference.name)}" loading="lazy">` : ''}
             <div><h3>${escapeHtml(character?.name ?? 'キャラクター未選択')} ・ ${request.seconds}秒</h3>
-              <p>${escapeHtml(reference?.name ?? '参照画像未設定')}</p></div>
-            <span class="film-offline">${resultAsset ? '外部MP4取込済み' : '未送信'}</span>
+              <p>${escapeHtml(reference?.name ?? '参照画像未設定')}${request.actionPreset ? ` ・ ${aiActions[request.actionPreset][0]}` : ''}</p></div>
+            <span class="film-offline">${resultAsset ? 'タイムラインへ配置済み' : hasCandidates ? '候補あり' : '下書き'}</span>
           </div>
           <dl class="ai-draft-details">
             <div><dt>動作</dt><dd>${escapeHtml(request.motion)}</dd></div>
             ${request.background ? `<div><dt>背景</dt><dd>${escapeHtml(request.background)}</dd></div>` : ''}
+            ${background ? `<div><dt>背景画像</dt><dd>${escapeHtml(background.name)}</dd></div>` : ''}
+            ${request.angle ? `<div><dt>アングル</dt><dd>${escapeHtml(aiAngles[request.angle])}</dd></div>` : ''}
             ${request.camera ? `<div><dt>カメラ</dt><dd>${escapeHtml(request.camera)}</dd></div>` : ''}
           </dl>
           ${resultAsset ? `<p>${escapeHtml(resultAsset.name)}${inTimeline ? ` ・ ${shotLabels[request.shot]}` : ''}</p>` : ''}
           <div class="row-actions">${action('編集', 'ai-draft', request.id)}${action('指示を表示・コピー', 'ai-prompt', request.id)}
             ${reference ? `<a class="button secondary" href="${mediaUrl(reference)}" download="${escapeHtml(reference.name)}">参照画像を保存</a>` : ''}
-            ${action('結果のMP4を配置', 'ai-import', request.id)}${action('削除', 'ai-delete', request.id, 'text-danger')}</div>
+            ${background ? `<a class="button secondary" href="${mediaUrl(background)}" download="${escapeHtml(background.name)}">背景画像を保存</a>` : ''}
+            ${action('無料外部生成', 'ai-generate', request.id, 'primary')}
+            ${action('結果MP4を候補に追加', 'ai-candidate-import', request.id)}${action('削除', 'ai-delete', request.id, 'text-danger')}</div>
         </article>`;
       }).join('')}</div>` : '<p>下書きがまだありません。</p>'}
-    </section>`;
+    </section>
+    ${aiCandidatePanel(project, candidates)}`;
 }
 
 function editAiDraft(requestId, walking = false) {
   const { project, assets } = state;
   const existing = aiRequests(project).find(request => request.id === requestId);
   if (requestId && !existing) return;
-  const defaults = existing ?? (walking ? { ...walkingDraft, characterId: project.characters[0]?.id } : { seconds: 4 });
+  const defaults = existing ?? (walking ? {
+    actionPreset: 'walk', angle: 'profile', motion: aiActions.walk[1], characterId: project.characters[0]?.id,
+    background: '夜の無人駅。背景と照明は一定。', camera: '固定。ズームやカット切替なし。', seconds: 4,
+  } : { seconds: 4 });
   dialog(existing ? '生成の下書きを編集' : '生成の下書きを作成', `
     ${filmSelect('characterId', 'キャラクター', project.characters.map(character => [character.id, character.name]), defaults.characterId)}
     <label class="field">参照画像<select name="referenceId"></select></label>
     <p id="ai-reference-hint" class="form-hint"></p>
+    ${filmSelect('actionPreset', '動作', Object.entries(aiActions).map(([key, [label]]) => [key, label]), defaults.actionPreset, '自由入力')}
+    ${action('選んだ動作のひな形を入れる', 'ai-template')}
+    ${filmSelect('backgroundId', '背景画像', assetOptions(assets, ['image']), defaults.backgroundId, '指定なし')}
+    ${filmSelect('angle', 'カメラアングル', Object.entries(aiAngles), defaults.angle, '指定なし')}
     <label class="field">動作指示<textarea name="motion" maxlength="800" rows="4" required>${escapeHtml(defaults.motion)}</textarea></label>
     <label class="field">背景<textarea name="background" maxlength="500" rows="2">${escapeHtml(defaults.background)}</textarea></label>
     <label class="field">カメラワーク<textarea name="camera" maxlength="500" rows="2">${escapeHtml(defaults.camera)}</textarea></label>
@@ -811,15 +1197,24 @@ function editAiDraft(requestId, walking = false) {
       const characterId = values.get('characterId');
       const referenceId = values.get('referenceId');
       const motion = values.get('motion').trim();
+      const backgroundId = values.get('backgroundId');
+      const actionPreset = values.get('actionPreset');
+      const angle = values.get('angle');
+      if ((actionPreset && !Object.hasOwn(aiActions, actionPreset)) || (angle && !Object.hasOwn(aiAngles, angle))) {
+        throw new Error('動作とカメラアングルの選択を確認してください。');
+      }
       const seconds = Number(values.get('seconds'));
       if (!motion || !aiClipLengths.includes(seconds)) throw new Error('動作指示と動画の長さを指定してください。');
       await changeProject(project.id, async (current, store) => {
         const character = current.characters.find(row => row.id === characterId);
         if (characterId && !character) throw new Error('キャラクターが見つかりません。');
         if (referenceId && !character?.referenceIds?.includes(referenceId)) throw new Error('キャラクターに登録済みの参照画像を選んでください。');
-        await linkedFilmAsset(store, current.id, referenceId, ['image']);
+        await Promise.all([
+          linkedFilmAsset(store, current.id, referenceId, ['image']),
+          linkedFilmAsset(store, current.id, backgroundId, ['image']),
+        ]);
         const requests = current.aiVideoRequests ??= [];
-        const fields = { characterId, referenceId, motion, seconds, background: values.get('background').trim(), camera: values.get('camera').trim() };
+        const fields = { characterId, referenceId, backgroundId, actionPreset, angle, motion, seconds, background: values.get('background').trim(), camera: values.get('camera').trim() };
         if (existing) {
           const target = requests.find(row => row.id === requestId);
           if (!target) throw new Error('下書きが見つかりません。');
@@ -837,11 +1232,16 @@ function editAiDraft(requestId, walking = false) {
     const images = assets.filter(asset => asset.kind === 'image' && character?.referenceIds?.includes(asset.id));
     references.replaceChildren(new Option('未選択', ''), ...images.map(asset => new Option(asset.name, asset.id)));
     references.value = images.some(asset => asset.id === selected) ? selected : '';
-    hint.textContent = images.length ? 'カットの出発点になる全身または横顔の画像を選びます。'
+    hint.textContent = images.length ? '顔・髪型・衣装が分かる画像を選びます。歩行は両足まで見える全身、背景を合成する場合は透過PNGが適しています。'
       : '作品の「素材」で画像を追加し、「キャラクター」の参照画像に登録すると選べます。';
   };
   populate(defaults.referenceId ?? (walking ? project.characters[0]?.referenceIds?.[0] : ''));
   characterSelect.addEventListener('change', () => populate(''));
+  form.querySelector('[data-action="ai-template"]').addEventListener('click', () => {
+    const preset = aiActions[form.elements.actionPreset.value];
+    if (preset) form.elements.motion.value = preset[1];
+    else notify('動作を選んでください。');
+  });
 }
 
 function showAiPrompt(requestId) {
@@ -905,54 +1305,6 @@ async function readImportedMp4(blob) {
     video.load();
     URL.revokeObjectURL(url);
   }
-}
-
-function importAiMp4(requestId) {
-  const { project, assets } = state;
-  const film = filmOf(project);
-  const starts = filmShotStarts(film);
-  const request = aiRequests(project).find(row => row.id === requestId);
-  if (requestId && !request) return;
-  const cutOptions = shotLabels.map((label, index) => [String(index), `${label}（${formatFilmSeconds(starts[index + 1] - starts[index])}秒）`]);
-  const existingMp4s = assets.filter(asset => asset.kind === 'video' && (asset.blob.type === 'video/mp4' || /\.mp4$/i.test(asset.name)));
-
-  dialog('外部MP4を配置', `
-    <label class="field">スマホのMP4ファイル<input type="file" name="mp4" accept=".mp4,video/mp4"></label>
-    ${existingMp4s.length ? filmSelect('sourceId', 'または作品内のMP4', assetOptions(existingMp4s, ['video']), '') : ''}
-    ${filmSelect('shot', '配置先のカット', cutOptions, String(request?.shot ?? 0))}
-    <label class="film-check"><input type="checkbox" name="fit">MP4の長さに合わせて各カットの尺を調整</label>
-    <p class="form-hint">25 MBまで。配置先の映像だけを差し替え、元の素材は残します。尺を調整すると他のカットの長さも変わります。動画の元音声はミュートされます。</p>`,
-    async values => {
-      const file = values.get('mp4');
-      const sourceId = values.get('sourceId');
-      const shot = values.get('shot');
-      if (!['0', '1', '2'].includes(shot)) throw new Error('配置先を選択してください。');
-      if (file.size && sourceId) throw new Error('スマホのファイルか作品内のMP4のどちらかを選択してください。');
-      const source = existingMp4s.find(asset => asset.id === sourceId);
-      const { mp4, seconds } = await readImportedMp4(file.size ? file : source?.blob);
-      const index = Number(shot);
-
-      await changeProject(project.id, async (current, store) => {
-        const currentFilm = editableFilm(current);
-        const target = aiRequests(current).find(row => row.id === requestId);
-        if (requestId && !target) throw new Error('下書きが見つかりません。');
-        if (values.has('fit')) fitFilmCut(currentFilm, index, seconds);
-
-        let videoId = source?.id;
-        if (videoId) await linkedFilmAsset(store, current.id, videoId, ['video']);
-        else {
-          videoId = id();
-          await result(store.add({
-            id: videoId, projectId: current.id, kind: 'video', name: file.name, blob: mp4, createdAt: Date.now(),
-          }));
-        }
-        currentFilm.shots[index].visualId = videoId;
-        if (target) Object.assign(target, { resultId: videoId, shot: index });
-      });
-
-      location.hash = href('film', project.id);
-      return `${shotLabels[index]}のカットにMP4を配置しました。`;
-    }, 'タイムラインに配置');
 }
 
 'use strict';
@@ -1524,7 +1876,8 @@ function readStudio(projectId) {
       ?? projects[0];
     const assets = await result(tx.objectStore('assets').index('projectId').getAll(project.id));
     assets.sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name, 'ja'));
-    return { projects, project, assets };
+    return { projects, project, assets: assets.filter(asset => !asset.aiCandidate || asset.aiCandidate.adopted),
+      candidates: assets.filter(asset => asset.aiCandidate).reverse() };
   });
 }
 
@@ -1951,7 +2304,12 @@ document.addEventListener('click', async event => {
     else if (verb === 'ai-draft' || verb === 'ai-walking') editAiDraft(itemId, verb === 'ai-walking');
     else if (verb === 'ai-prompt') showAiPrompt(itemId);
     else if (verb === 'ai-delete') removeAiDraft(itemId);
-    else if (verb === 'ai-import') importAiMp4(itemId);
+    else if (verb === 'ai-candidate-import') importAiCandidate(itemId);
+    else if (verb === 'ai-candidate-adopt') await adoptAiCandidate(itemId);
+    else if (verb === 'ai-candidate-place') placeAiCandidate(itemId);
+    else if (verb === 'ai-candidate-remove') removeAiCandidate(itemId);
+    else if (verb === 'ai-candidate-scroll') document.getElementById('ai-candidates')?.scrollIntoView();
+    else if (verb === 'ai-generate') await showWanGenerate(itemId);
     else if (verb === 'film-references') editCharacterReferences(itemId);
     else if (verb === 'film-shot') editFilmShot(Number(itemId));
     else if (verb === 'film-cues') editFilmCues(Number(itemId));
