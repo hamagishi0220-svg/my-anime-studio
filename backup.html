@@ -1,0 +1,1658 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f6f1">
+  <title>MY ANIME STUDIO</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-i7UyKqrgim3A//nSiaKyAxh1fxF38v35ljwZ1iFl/7o='; style-src 'sha256-kbMlhBSZ6C+xt47b/f8x12CZIGUyYTCHtig/LTp6ub0='; img-src blob:; media-src blob:; base-uri 'none'; form-action 'none'">
+  <style>
+:root {
+  color-scheme: light;
+  font-family: "Hiragino Sans", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  color: #221d30;
+  background: #f8f6f1;
+  --canvas: #f8f6f1;
+  --surface: #fffdf9;
+  --ink: #221d30;
+  --muted: #605a6d;
+  --line: #e9e4eb;
+  --purple: #5535af;
+  --pale: #efe9fb;
+  --danger: #a42445;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .55; }
+:focus-visible { outline: 3px solid #7759d8; outline-offset: 3px; }
+[hidden] { display: none !important; }
+.ico { width: 20px; height: 20px; display: inline-block; vertical-align: middle; flex: none; }
+.layout { min-height: 100vh; display: grid; grid-template-columns: 226px minmax(0, 1fr); }
+.sidebar { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; padding: 30px 17px 20px; background: #fffdf9; border-right: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font: 850 .97rem/1.04 system-ui,sans-serif; letter-spacing: .055em; width: fit-content; }
+.sidebar .brand { margin: 0 9px 42px; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px 11px 11px 4px; background: var(--purple); color: white; font-size: .79rem; padding-left: 2px; }
+.brand-studio { display: block; color: var(--purple); font-size: .72rem; letter-spacing: .24em; margin-top: 5px; }
+.nav-link { display: flex; align-items: center; gap: 11px; min-height: 45px; color: var(--muted); font-size: .88rem; font-weight: 700; padding: 0 12px; border-radius: 10px; }
+.nav-link:hover { background: #f4effb; color: var(--purple); }
+.nav-link[aria-current="page"] { background: var(--pale); color: #432694; }
+#desktop-nav { display: grid; gap: 5px; }
+.active-work { margin-top: auto; }
+.active-tile { color: var(--muted); padding: 12px; background: var(--canvas); border: 1px solid #eeebe5; border-radius: 12px; }
+.active-tile span { display: block; color: var(--purple); font-size: .68rem; font-weight: 800; margin-bottom: 5px; }
+.active-tile strong { display: block; color: var(--ink); font-size: .86rem; overflow-wrap: anywhere; }
+.topbar { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 clamp(20px, 4vw, 56px); border-bottom: 1px solid var(--line); background: #fffdf9; }
+.breadcrumb { color: var(--muted); font-size: .83rem; overflow-wrap: anywhere; }
+.breadcrumb strong { color: var(--ink); }
+.crumb-divider { color: #82788d; margin-inline: .7em; }
+.storage-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; font-size: .73rem; }
+.storage-status > span { width: 7px; height: 7px; border-radius: 50%; background: #368559; }
+.storage-status.unavailable > span { background: var(--danger); }
+.mobile-brand, .mobile-nav { display: none; }
+main { max-width: 1250px; margin-inline: auto; padding: 34px clamp(20px, 4vw, 56px) 48px; }
+.section-head, .page-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.page-head { margin-bottom: 25px; }
+.page-head h1 { margin: 0; font-size: clamp(1.55rem, 3.4vw, 2.15rem); line-height: 1.25; letter-spacing: -.035em; }
+.page-context { color: var(--purple); font-size: .74rem; font-weight: 800; margin: 0 0 6px; overflow-wrap: anywhere; }
+.section-head { margin: 31px 0 13px; }
+.section-head h2 { font-size: 1.14rem; margin: 0; }
+.button, .icon-button { display: inline-flex; justify-content: center; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 10px; min-height: 44px; padding: 8px 13px; font-size: .84rem; font-weight: 780; line-height: 1.25; }
+.button .ico { width: 17px; height: 17px; }
+.primary { background: var(--purple); color: #fff; }
+.primary:hover { background: #43258f; }
+.secondary, .icon-button { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.secondary:hover, .icon-button:hover { background: var(--pale); }
+.danger { background: var(--danger); color: white; }
+.text-danger { background: transparent; color: var(--danger); }
+.text-danger:hover { background: #fbebef; }
+.icon-button { width: 44px; padding: 0; font-size: 1.5rem; }
+.hero { position: relative; overflow: hidden; border-radius: 18px; background: #282044; color: white; min-height: 302px; display: grid; align-items: center; isolation: isolate; }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 73% 36%, #8561c296, transparent 43%), linear-gradient(112deg,#211831, #393365 68%,#514c7e); }
+.hero-content { padding: 30px clamp(23px, 5vw, 48px); max-width: 39rem; }
+.hero-genre { margin: 0 0 12px; color: #e3d8ff; font-size: .74rem; font-weight: 800; letter-spacing: .14em; overflow-wrap: anywhere; }
+.hero h2 { font-size: clamp(2.3rem, 7vw, 4.25rem); line-height: 1.09; letter-spacing: -.055em; margin: 0; overflow-wrap: anywhere; }
+.hero-summary { max-width: 32em; margin: 14px 0 21px; color: #f5eefc; font-size: .86rem; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hero-actions, .row-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.hero-open { background: #fff; color: #362563; }
+.hero-open:hover { background: #eee4ff; }
+.hero-edit { background: #282041b3; border-color: #fff6; color: #fff; }
+.hero-edit:hover { background: #3e305e; }
+.tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; }
+.tool { display: grid; gap: 10px; min-height: 119px; padding: 13px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.tool:hover, .work-item a:hover { border-color: #a48ad8; }
+.tool .tool-end { display: flex; justify-content: space-between; align-items: end; gap: 4px; }
+.tool .tool-end > .ico { width: 15px; color: var(--muted); }
+.tool strong { display: block; font-size: .88rem; }
+.tool small { display: block; color: var(--muted); font-size: .71rem; margin-top: 4px; }
+.tile-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: #efe8ff; color: #5835ae; }
+.tool:nth-child(2) .tile-icon { color: #98486b; background: #fbe8ef; }
+.tool:nth-child(3) .tile-icon { color: #326b75; background: #e5f3f1; }
+.tool:nth-child(4) .tile-icon { color: #8b5b2b; background: #f9eee0; }
+.work-grid, .entries, .board-grid, .asset-grid { display: grid; gap: 12px; }
+.work-grid, .board-grid, .asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.work-item a, .entry, .board, .asset, .empty { border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.work-item a { display: block; padding: 15px; }
+.work-item a span, .entry-label, .asset-info { color: var(--purple); font-weight: 800; font-size: .72rem; }
+.work-item a strong { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.entry, .board, .asset, .empty { padding: 15px; min-width: 0; }
+.entry { display: flex; align-items: flex-start; gap: 12px; }
+.entry-number { flex: none; height: 36px; min-width: 36px; padding: 0 5px; display: grid; place-items: center; color: var(--purple); background: var(--pale); border-radius: 8px; font-size: .8rem; font-weight: 850; }
+.entry-content { flex: 1; min-width: 0; }
+.entry h2, .board h2, .asset h2 { margin: 2px 0 0; font-size: 1rem; overflow-wrap: anywhere; }
+.entry p, .board p, .asset p, .empty p { color: var(--muted); font-size: .84rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; margin: 7px 0 0; }
+.entry .row-actions, .board .row-actions, .asset .row-actions { margin-top: 12px; }
+.entry .row-actions .button, .board .row-actions .button, .asset .row-actions .button { min-height: 44px; }
+.board-image, .asset-media { display: grid; place-items: center; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 8px; margin-bottom: 12px; background: #eee8f7; color: #705596; }
+.board-image img, .asset-media img, .asset-media video { width: 100%; height: 100%; display: block; object-fit: contain; }
+.asset-audio { width: 100%; margin-bottom: 10px; }
+.empty { padding: 24px; }
+.empty p { margin: 0; }
+dialog { color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(92vw, 520px); max-height: 90dvh; }
+dialog::backdrop { background: #21182a91; }
+.dialog-header, .dialog-body, .dialog-actions, .form-error { padding: 15px 19px; }
+.dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.dialog-header h2 { font-size: 1.14rem; margin: 0; }
+.dialog-body { display: grid; gap: 12px; }
+.field { display: grid; gap: 6px; color: var(--ink); font-weight: 700; font-size: .83rem; }
+.field input, .field textarea, .field select { background: #fff; color: var(--ink); border: 1px solid #d6cde2; padding: 9px 10px; border-radius: 8px; width: 100%; min-width: 0; min-height: 44px; font-size: 16px; font-weight: 450; }
+.field textarea { resize: vertical; min-height: 96px; }
+.field input::file-selector-button { border: 0; padding: 6px 8px; background: var(--pale); color: var(--purple); border-radius: 4px; }
+.form-hint { color: var(--muted); font-size: .8rem; line-height: 1.55; margin: 0; overflow-wrap: anywhere; }
+.form-error { margin: 0; color: var(--danger); font-size: .83rem; }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); }
+.notice { position: fixed; z-index: 2; bottom: 18px; right: 18px; border-radius: 9px; color: white; background: #2f2448; font-size: .84rem; padding: 0; }
+.notice:not(:empty) { padding: 12px 16px; }
+@media (max-width: 970px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .layout { display: block; }
+  .sidebar, .breadcrumb { display: none; }
+  .mobile-brand { display: flex; letter-spacing: .04em; font-size: .79rem; }
+  .mobile-brand .brand-mark { width: 30px; height: 30px; border-radius: 8px 8px 8px 3px; }
+  .topbar { min-height: 56px; padding-inline: 16px; }
+  main { padding: 22px 16px calc(93px + env(safe-area-inset-bottom)); }
+  .page-head { margin-bottom: 16px; gap: 8px; }
+  .hero { min-height: 275px; }
+  .hero.seeded::before { background-position: center, 61% 50%; }
+  .hero-content { padding: 23px 18px; }
+  .hero-summary { font-size: .8rem; }
+  .section-head { margin-top: 24px; }
+  .tools { gap: 8px; }
+  .tool { min-height: 98px; padding: 10px; gap: 5px; }
+  .mobile-nav { display: grid; position: fixed; z-index: 1; bottom: 0; left: 0; right: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--line); padding: 5px 4px calc(5px + env(safe-area-inset-bottom)); background: var(--surface); }
+  .mobile-nav .nav-link { flex-direction: column; justify-content: center; text-align: center; font-size: .65rem; gap: 3px; min-height: 51px; padding: 3px 0; }
+  .notice { bottom: calc(73px + env(safe-area-inset-bottom)); max-width: calc(100% - 36px); }
+}
+@media (max-width: 510px) { .board-grid, .asset-grid { grid-template-columns: 1fr; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.film-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.film-player, .film-panel { padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); min-width: 0; }
+.film-layout + .film-panel, #main > .film-panel { margin-top: 16px; }
+.film-player { color: #f8f1ff; background: #242138; border-color: #312b49; }
+.film-player h2, .film-panel h2 { margin: 0; font-size: 1.03rem; }
+.film-player-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 13px; }
+.film-player-head span { color: #d6ccec; font-size: .75rem; white-space: nowrap; }
+#film-canvas { display: block; width: 100%; height: auto; border-radius: 9px; background: #141427; }
+.film-transport { display: flex; align-items: center; gap: 12px; margin: 9px 0; }
+.film-scrub { display: grid; flex: 1; min-width: 0; }
+.film-scrub input { min-width: 44px; width: 100%; min-height: 44px; accent-color: #c6aaf9; }
+#film-clock { color: #e3d9f4; font-size: .76rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.film-player .secondary { border-color: #615470; background: #312942; color: #f3ebfe; }
+.film-player .secondary:hover { background: #433653; }
+.film-player .primary { background: #cab5ff; color: #201537; }
+.film-player .form-hint { color: #e5d9fc; margin-top: 10px; }
+#film-download { margin-top: 10px; }
+.film-panel > p, .film-shot p { margin: 7px 0; font-size: .83rem; color: var(--muted); line-height: 1.55; overflow-wrap: anywhere; }
+.film-shots, .film-jobs { display: grid; gap: 9px; margin-top: 12px; }
+.film-jobs:empty { margin-top: 0; }
+.film-shot { border: 1px solid var(--line); background: var(--canvas); border-radius: 9px; padding: 11px; }
+.film-shot h3 { margin: 0; font-size: .87rem; overflow-wrap: anywhere; }
+.film-shot h3 span, .film-offline { display: inline-block; border-radius: 5px; background: var(--pale); color: var(--purple); padding: 3px 5px; font-size: .71rem; white-space: nowrap; }
+.film-panel .section-head { margin: 0; }
+.film-shot .film-line { white-space: pre-wrap; color: var(--ink); }
+.film-checklist { display: grid; gap: 6px; max-height: 44dvh; overflow: auto; }
+.film-checklist label, .film-check { display: flex; align-items: center; min-height: 44px; gap: 9px; font-size: .85rem; overflow-wrap: anywhere; }
+.film-checklist input, .film-check input { width: 20px; height: 20px; accent-color: var(--purple); flex: none; }
+.character-references { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 9px; }
+.character-references:empty { margin-top: 6px; }
+.character-references img { width: 62px; height: 62px; object-fit: cover; border-radius: 7px; background: var(--pale); }
+@media (max-width: 990px) { .film-layout { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  .mobile-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .mobile-nav .nav-link { font-size: clamp(.49rem, 2.6vw, .65rem); }
+  .film-player, .film-panel { padding: 12px; }
+}
+</style>
+</head>
+<body data-backup-only>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="#/works">
+        <span class="brand-mark" aria-hidden="true">▶</span>
+        <span>MY ANIME<span class="brand-studio">STUDIO</span></span>
+      </a>
+      <nav id="desktop-nav" aria-label="メインメニュー"></nav>
+      <div id="active-work" class="active-work"></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <a class="brand mobile-brand" href="#/works">
+          <span class="brand-mark" aria-hidden="true">▶</span><span>MY ANIME STUDIO</span>
+        </a>
+        <div id="breadcrumb" class="breadcrumb"></div>
+        <span class="storage-status"><span aria-hidden="true"></span>このブラウザに保存</span>
+      </header>
+      <main id="main" aria-busy="true"><p>スタジオを開いています…</p></main>
+    </div>
+    <nav id="mobile-nav" class="mobile-nav" aria-label="メインメニュー"></nav>
+  </div>
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="editor-form">
+      <header class="dialog-header">
+        <h2 id="editor-title"></h2>
+        <button type="button" class="icon-button" data-action="close" aria-label="閉じる">×</button>
+      </header>
+      <div id="editor-body" class="dialog-body"></div>
+      <p id="editor-error" class="form-error" role="alert" hidden></p>
+      <footer class="dialog-actions">
+        <button type="button" class="button secondary" data-action="close">キャンセル</button>
+        <button type="submit" class="button primary" id="editor-submit">保存する</button>
+      </footer>
+    </form>
+  </dialog>
+  <div id="notice" class="notice" role="status"></div>
+<script>
+'use strict';
+
+const backupMagic = 'MASTUDIO1';
+const backupEncoder = new TextEncoder();
+const backupDecoder = new TextDecoder('utf-8', { fatal: true });
+const backupHeaderSize = backupMagic.length + 4;
+const backupManifestLimit = 16_000_000;
+let backupUrl;
+
+function backupPanel(onlyExport = false) {
+  return `<section class="film-panel" aria-labelledby="backup-title">
+    <h2 id="backup-title">バックアップ</h2>
+    <p>このブラウザの全作品と素材をファイルに保存できます。${onlyExport ? '' : '復元は作品のコピーを追加します。'}</p>
+    <div class="row-actions">
+      ${action('バックアップを作成', 'backup-export')}
+      ${onlyExport ? '' : action('ファイルから復元', 'backup-import')}
+      <a id="backup-download" class="button primary" download="my-anime-studio.mastudio" hidden>バックアップをダウンロード</a>
+    </div>
+  </section>`;
+}
+
+async function createBackup() {
+  const { projects, assets } = await transaction(['projects', 'assets'], 'readonly', async tx => {
+    const [projects, assets] = await Promise.all(['projects', 'assets'].map(name => result(tx.objectStore(name).getAll())));
+    return { projects, assets };
+  });
+  const manifest = backupEncoder.encode(JSON.stringify({
+    projects,
+    assets: assets.map(({ blob, ...asset }) => ({ ...asset, size: blob.size, type: blob.type })),
+  }));
+  if (manifest.length > backupManifestLimit) throw new Error('作品データがバックアップの上限を超えました。');
+  const header = new Uint8Array(backupHeaderSize);
+  header.set(backupEncoder.encode(backupMagic));
+  new DataView(header.buffer).setUint32(backupMagic.length, manifest.length);
+  return new Blob([header, manifest, ...assets.map(asset => asset.blob)], { type: 'application/octet-stream' });
+}
+
+async function showBackupDownload() {
+  const file = await createBackup();
+  const link = document.getElementById('backup-download');
+  if (!link) return;
+  if (backupUrl) URL.revokeObjectURL(backupUrl);
+  backupUrl = URL.createObjectURL(file);
+  link.href = backupUrl;
+  link.hidden = false;
+  link.focus();
+  notify('バックアップをダウンロードできます。');
+}
+
+function validateBackup(condition) {
+  if (!condition) throw new Error('バックアップの形式が正しくないか、ファイルが破損しています。');
+}
+
+const validBackupId = value => typeof value === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(value);
+const validBackupText = value => typeof value === 'string';
+const validBackupTextFields = (record, ...keys) => keys.every(key => validBackupText(record?.[key]));
+
+function uniqueBackupIds(rows) {
+  return Array.isArray(rows) && rows.every(row => validBackupId(row?.id))
+    && new Set(rows.map(row => row.id)).size === rows.length;
+}
+
+async function parseBackup(file) {
+  validateBackup(file?.size >= backupHeaderSize);
+  const header = await file.slice(0, backupHeaderSize).arrayBuffer();
+  validateBackup(backupDecoder.decode(header.slice(0, backupMagic.length)) === backupMagic);
+  const length = new DataView(header).getUint32(backupMagic.length);
+  let offset = backupHeaderSize + length;
+  validateBackup(length > 0 && length <= backupManifestLimit && offset <= file.size);
+  const { projects, assets } = JSON.parse(backupDecoder.decode(await file.slice(backupHeaderSize, offset).arrayBuffer()));
+  validateBackup(uniqueBackupIds(projects) && uniqueBackupIds(assets) && projects.length > 0);
+  const copies = new Map(projects.map(project => [project.id, id()]));
+  const assetIds = new Map();
+  const restoredAssets = assets.map(asset => {
+    const { id: oldId, projectId, kind, name, size, type, createdAt } = asset;
+    validateBackup(copies.has(projectId) && ['image', 'audio', 'video'].includes(kind)
+      && typeof name === 'string' && typeof type === 'string' && type.startsWith(kind + '/')
+      && Number.isFinite(createdAt) && Number.isSafeInteger(size) && size > 0 && offset + size <= file.size);
+    const blob = file.slice(offset, offset + size, type);
+    offset += size;
+    const assetId = id();
+    assetIds.set(oldId, { assetId, projectId, kind });
+    return { id: assetId, projectId: copies.get(projectId), kind, name, blob, createdAt };
+  });
+
+  validateBackup(offset === file.size);
+  const restoredProjects = projects.map(project => {
+    const remap = (key, kinds) => {
+      const asset = assetIds.get(key);
+      return asset?.projectId === project.id && kinds.includes(asset.kind) ? asset.assetId : '';
+    };
+    validateBackup(validBackupTextFields(project, 'title', 'genre', 'summary')
+      && uniqueBackupIds(project.scenes) && uniqueBackupIds(project.characters) && uniqueBackupIds(project.boards)
+      && project.scenes.every(scene => validBackupTextFields(scene, 'title', 'place', 'notes'))
+      && project.characters.every(character => validBackupTextFields(character, 'name', 'role', 'appearance', 'notes'))
+      && project.boards.every(board => validBackupTextFields(board, 'title', 'sceneId', 'imageId', 'camera', 'notes')));
+    const copy = {
+      id: copies.get(project.id), title: project.title + '（復元）', genre: project.genre, summary: project.summary,
+      scenes: project.scenes,
+      characters: project.characters.map(character => ({
+        ...character,
+        referenceIds: (Array.isArray(character.referenceIds) ? character.referenceIds : [])
+          .map(key => remap(key, ['image'])).filter(Boolean),
+      })),
+      boards: project.boards.map(board => ({ ...board, imageId: remap(board.imageId, ['image']) })),
+    };
+    if (project.film || project.id === sample.id) copy.film = restoreFilm(filmOf(project), remap);
+    return copy;
+  });
+  return { projects: restoredProjects, assets: restoredAssets };
+}
+
+function importBackup() {
+  dialog('バックアップを復元', `
+    <label class="field">バックアップファイル <input type="file" name="archive" accept=".mastudio" required></label>
+    <p class="form-hint">保存済みの作品を残したまま、ファイル内の作品と素材をコピーとして追加します。</p>`,
+  async values => {
+    const { projects, assets } = await parseBackup(values.get('archive')).catch(() => {
+      throw new Error('このファイルを復元できませんでした。MY ANIME STUDIOのバックアップを選んでください。');
+    });
+    await transaction(['projects', 'assets'], 'readwrite', tx => Promise.all([
+      ...projects.map(project => result(tx.objectStore('projects').add(project))),
+      ...assets.map(asset => result(tx.objectStore('assets').add(asset))),
+    ]));
+    location.hash = href('works', projects[0].id);
+    return `${projects.length}作品と${assets.length}件の素材を復元しました。`;
+  }, 'コピーを復元');
+}
+
+'use strict';
+
+const filmDuration = 10;
+const shotStarts = [0, 3, 6, 10];
+const shotLabels = ['歩く', '振り向く', '話す・表情'];
+const filmJobLabels = { motion: '動画生成', lipsync: 'リップシンク' };
+const mouthShapes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X'];
+
+function defaultFilm(project) {
+  const characterId = project.id === sample.id && project.characters.some(character => character.id === 'akari') ? 'akari' : '';
+  return {
+    shots: shotLabels.map((_, index) => ({
+      visualId: '', audioId: '', audioOffset: 0, characterId,
+      line: project.id === sample.id && index === 2 ? '零番駅…ここにいるの？' : '', cues: [],
+    })),
+    jobs: [],
+  };
+}
+
+const filmOf = project => project.film ?? defaultFilm(project);
+const editableFilm = project => project.film ??= defaultFilm(project);
+
+function validMouthCues(cues) {
+  return Array.isArray(cues) && cues.length <= 2000 && cues.every((cue, index) =>
+    Number.isFinite(cue?.start) && Number.isFinite(cue.end) && cue.start >= 0 && cue.start < cue.end
+    && cue.end <= 600 && (!index || cue.start >= cues[index - 1].end - 0.001)
+    && mouthShapes.includes(cue.value));
+}
+
+function restoreFilm(film, remap) {
+  validateBackup(Array.isArray(film.shots) && film.shots.length === 3 && uniqueBackupIds(film.jobs));
+  return {
+    shots: film.shots.map((shot, index) => {
+      validateBackup(validBackupTextFields(shot, 'line', 'characterId', 'visualId', 'audioId') && validMouthCues(shot.cues)
+        && Number.isFinite(shot.audioOffset) && shot.audioOffset >= 0 && shot.audioOffset < shotStarts[index + 1] - shotStarts[index]);
+      return {
+        ...shot, visualId: remap(shot.visualId, ['image', 'video']), audioId: remap(shot.audioId, ['audio']),
+      };
+    }),
+    jobs: film.jobs.map(job => {
+      validateBackup(Object.hasOwn(filmJobLabels, job.kind) && [0, 1, 2].includes(job.shot)
+        && validBackupTextFields(job, 'prompt', 'resultId'));
+      return { ...job, resultId: remap(job.resultId, ['video']) };
+    }),
+  };
+}
+
+function detachFilmAsset(project, assetId) {
+  for (const character of project.characters) {
+    if (character.referenceIds) character.referenceIds = character.referenceIds.filter(key => key !== assetId);
+  }
+  if (!project.film) return;
+  for (const shot of project.film.shots) {
+    if (shot.visualId === assetId) shot.visualId = '';
+    if (shot.audioId === assetId) shot.audioId = '';
+  }
+  for (const job of project.film.jobs) if (job.resultId === assetId) job.resultId = '';
+}
+
+function assetOptions(assets, kinds) {
+  return assets.filter(asset => kinds.includes(asset.kind)).map(asset => [asset.id, asset.name]);
+}
+
+function filmSelect(name, label, options, value, emptyLabel = '未選択') {
+  return `<label class="field">${label}<select name="${name}"><option value="">${emptyLabel}</option>${options.map(([key, text]) =>
+    `<option value="${escapeHtml(key)}"${key === value ? ' selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
+}
+
+async function linkedFilmAsset(store, projectId, assetId, kinds) {
+  if (!assetId) return '';
+  const asset = await result(store.get(assetId));
+  if (asset?.projectId !== projectId || !kinds.includes(asset.kind)) {
+    throw new Error('選んだ素材が見つかりません。もう一度選び直してください。');
+  }
+  return assetId;
+}
+
+function characterReferences(character, assets) {
+  const refs = (character.referenceIds ?? []).map(key => assets.find(asset => asset.id === key)).filter(Boolean);
+  return `<div class="character-references">${refs.map(asset =>
+    `<img src="${mediaUrl(asset)}" alt="${escapeHtml(asset.name)}" loading="lazy">`).join('')}</div>
+    ${action(`参照画像（${refs.length}）`, 'film-references', character.id)}`;
+}
+
+function editCharacterReferences(characterId) {
+  const { project, assets } = state;
+  const character = project.characters.find(row => row.id === characterId);
+  if (!character) return;
+  const choices = assetOptions(assets, ['image']);
+  dialog('キャラクター参照画像', `
+    <p class="form-hint">${escapeHtml(character.name)}の正面・横顔・表情などを選択できます。</p>
+    ${choices.length ? `<div class="film-checklist">${choices.map(([key, name]) => `
+      <label><input type="checkbox" name="references" value="${key}"${character.referenceIds?.includes(key) ? ' checked' : ''}>
+        ${escapeHtml(name)}</label>`).join('')}</div>` : `<p class="form-hint">「素材」で画像を追加してから選択してください。</p>`}`,
+    async values => {
+      const keys = values.getAll('references');
+      await changeProject(project.id, async (current, store) => {
+        const target = current.characters.find(row => row.id === characterId);
+        if (!target) throw new Error('キャラクターが見つかりません。');
+        target.referenceIds = await Promise.all(keys.map(key => linkedFilmAsset(store, current.id, key, ['image'])));
+      });
+      return '参照画像を保存しました。';
+    });
+}
+
+function filmPage({ project, assets }) {
+  const film = filmOf(project);
+  const names = new Map(assets.map(asset => [asset.id, asset.name]));
+  return `<div class="page-head"><div><p class="page-context">${escapeHtml(project.title)}</p>
+    <h1 id="view-title" tabindex="-1">10秒のテストシーン</h1></div></div>
+    <div class="film-layout">
+      <section class="film-player" aria-labelledby="preview-title">
+        <div class="film-player-head"><h2 id="preview-title">シーンプレビュー</h2><span>16:9 · 720p</span></div>
+        <canvas id="film-canvas" width="1280" height="720" aria-label="10秒のシーン表示"></canvas>
+        <div class="film-transport">
+          <label class="film-scrub"><span class="sr-only">再生位置</span>
+            <input id="film-time" type="range" min="0" max="10" step="0.04" value="0"></label>
+          <output id="film-clock">0.00 / 10.00 秒</output>
+        </div>
+        <div class="row-actions">
+          ${action('再生', 'film-play', '', 'primary')}${action('停止', 'film-stop')}
+          ${action('MP4を書き出す', 'film-mp4')}${action('WebMを書き出す', 'film-webm')}
+        </div>
+        <p id="film-status" class="form-hint" role="status"></p>
+        <a id="film-download" class="button primary" hidden>動画を保存</a>
+      </section>
+      <section class="film-panel" aria-labelledby="timeline-title">
+        <h2 id="timeline-title">タイムライン</h2>
+        <p>3カットで10秒。デモ作画、画像または無音の動画に、録音素材と字幕を重ねます。</p>
+        <div class="film-shots">${film.shots.map((shot, index) => `<article class="film-shot">
+          <h3><span>${shotStarts[index]}–${shotStarts[index + 1]}秒</span> ${shotLabels[index]}</h3>
+          ${shot.characterId ? `<p>${escapeHtml(project.characters.find(row => row.id === shot.characterId)?.name ?? '')}</p>` : ''}
+          <p>${escapeHtml(names.get(shot.visualId) ?? 'デモ作画')} ／ ${escapeHtml(names.get(shot.audioId) ?? '音声なし')}</p>
+          ${shot.line ? `<p class="film-line">${escapeHtml(shot.line)}</p>` : ''}
+          <div class="row-actions">${action('カットを編集', 'film-shot', index)}
+            ${action(shot.cues.length ? `口形データ（${shot.cues.length}件）` : '口形データ', 'film-cues', index)}
+          </div></article>`).join('')}</div>
+      </section>
+    </div>
+    <section class="film-panel" aria-labelledby="jobs-title">
+      <div class="section-head"><h2 id="jobs-title">生成ジョブ</h2><span class="film-offline">エンジン未接続</span></div>
+      <p>ジョブは端末内の下書きです。動画生成や自動リップシンクは実行されません。別のツールで作った動画を取り込めます。</p>
+      <div class="row-actions">${action('ジョブを作成', 'film-job-add')}</div>
+      <div class="film-jobs">${film.jobs.map(job => `<article class="film-shot">
+        <h3>${filmJobLabels[job.kind]} ・ ${shotLabels[job.shot]} <span>${job.resultId ? '結果を取込済み' : '未送信'}</span></h3>
+        ${job.prompt ? `<p class="film-line">${escapeHtml(job.prompt)}</p>` : ''}
+        ${job.resultId ? `<p>${escapeHtml(names.get(job.resultId) ?? '')}</p>` : ''}
+        <div class="row-actions">${action('外部結果を取り込む', 'film-job-result', job.id)}
+          ${action('詳細を編集', 'film-job-edit', job.id)}${action('削除', 'film-job-remove', job.id, 'text-danger')}
+        </div></article>`).join('')}</div>
+    </section>`;
+}
+
+function editFilmShot(index) {
+  if (![0, 1, 2].includes(index)) return;
+  const { project, assets } = state;
+  const shot = filmOf(project).shots[index];
+  const duration = shotStarts[index + 1] - shotStarts[index];
+  dialog(`${shotLabels[index]}のカット`, `
+    ${filmSelect('characterId', 'キャラクター', project.characters.map(row => [row.id, row.name]), shot.characterId)}
+    ${filmSelect('visualId', '映像素材', assetOptions(assets, ['image', 'video']), shot.visualId, 'デモ作画')}
+    ${filmSelect('audioId', '音声素材', assetOptions(assets, ['audio']), shot.audioId, '音声なし')}
+    <label class="field">カットの先頭から音声を遅らせる秒数
+      <input name="audioOffset" type="number" min="0" max="${duration - .1}" step=".1" value="${shot.audioOffset}" required>
+    </label>
+    <label class="field">セリフ・字幕<textarea name="line" maxlength="100" rows="2">${escapeHtml(shot.line)}</textarea></label>
+    <p class="form-hint">動画は先頭から再生し、短い場合は最後のフレームで止まります。動画の元音声は使わず、選んだ音声素材を使用します。</p>`,
+    async values => {
+      const audioOffset = Number(values.get('audioOffset'));
+      if (!Number.isFinite(audioOffset) || audioOffset < 0 || audioOffset >= duration) throw new Error('音声の開始位置を確認してください。');
+      await changeProject(project.id, async (current, store) => {
+        const characterId = values.get('characterId');
+        if (characterId && !current.characters.some(row => row.id === characterId)) throw new Error('キャラクターが見つかりません。');
+        const [visualId, audioId] = await Promise.all([
+          linkedFilmAsset(store, current.id, values.get('visualId'), ['image', 'video']),
+          linkedFilmAsset(store, current.id, values.get('audioId'), ['audio']),
+        ]);
+        Object.assign(editableFilm(current).shots[index], { characterId, visualId, audioId, audioOffset, line: values.get('line').trim() });
+      });
+      return 'カットを保存しました。';
+    });
+}
+
+function editFilmCues(index) {
+  if (![0, 1, 2].includes(index)) return;
+  const { project } = state;
+  const count = filmOf(project).shots[index].cues.length;
+  dialog('リップシンクの口形データ', `
+    <label class="field">Rhubarb Lip SyncのJSONファイル<input type="file" name="cues" accept=".json,application/json"></label>
+    ${count ? '<label class="film-check"><input type="checkbox" name="clear">保存済みの口形データを解除</label>' : ''}
+    <p class="form-hint">別のツールで作成したJSONを読み込み、デモ作画の口に反映します。口形の時刻は音声の開始位置が基準です。${count ? ` 登録済み：${count}件。` : ''}</p>`,
+    async values => {
+      const file = values.get('cues');
+      let cues = [];
+      if (file.size) {
+        if (file.size > 250_000) throw new Error('口形データは250 KBまでです。');
+        try { cues = JSON.parse(await file.text())?.mouthCues; } catch { /* Invalid JSON is reported below. */ }
+        if (!validMouthCues(cues) || !cues.length) throw new Error('有効なmouthCuesを含むRhubarbのJSONを選んでください。');
+        cues = cues.map(({ start, end, value }) => ({ start, end, value }));
+      } else if (!values.has('clear')) throw new Error('JSONを選ぶか、解除にチェックを入れてください。');
+      await changeProject(project.id, current => { editableFilm(current).shots[index].cues = cues; });
+      return '口形データを更新しました。';
+    });
+}
+
+function editFilmJob(jobId) {
+  const { project } = state;
+  const job = jobId ? filmOf(project).jobs.find(row => row.id === jobId) : null;
+  if (jobId && !job) return;
+  dialog(job ? 'ジョブを編集' : '生成ジョブを作成', `
+    ${filmSelect('kind', 'ジョブの種類', Object.entries(filmJobLabels), job?.kind ?? 'motion')}
+    ${filmSelect('shot', '対象のカット', shotLabels.map((label, index) => [String(index), label]), String(job?.shot ?? 0))}
+    <label class="field">生成指示・メモ<textarea name="prompt" maxlength="2000">${escapeHtml(job?.prompt ?? '')}</textarea></label>
+    <p class="form-hint">エンジン未接続。下書きは端末内に保存されます。</p>`,
+    async values => {
+      const kind = values.get('kind');
+      const selectedShot = values.get('shot');
+      if (!Object.hasOwn(filmJobLabels, kind) || !['0', '1', '2'].includes(selectedShot)) throw new Error('種類とカットを選んでください。');
+      const shot = Number(selectedShot);
+      const prompt = values.get('prompt').trim();
+      await changeProject(project.id, current => {
+        const jobs = editableFilm(current).jobs;
+        if (!job) jobs.push({ id: id(), kind, shot, prompt, resultId: '' });
+        else {
+          const target = jobs.find(row => row.id === jobId);
+          if (!target) throw new Error('ジョブが見つかりません。');
+          if (target.shot !== shot || target.kind !== kind) target.resultId = '';
+          Object.assign(target, { kind, shot, prompt });
+        }
+      });
+      return 'ジョブを保存しました。';
+    });
+}
+
+function importFilmJobResult(jobId) {
+  const { project, assets } = state;
+  const job = filmOf(project).jobs.find(row => row.id === jobId);
+  if (!job) return;
+  dialog('外部の動画結果を取り込む', `
+    ${filmSelect('resultId', '動画素材', assetOptions(assets, ['video']), job.resultId)}
+    <p class="form-hint">先に「素材」で動画を追加してください。選択した動画が対象カットの映像になります。</p>`,
+    async values => {
+      if (!values.get('resultId')) throw new Error('動画素材を選んでください。');
+      await changeProject(project.id, async (current, store) => {
+        const film = editableFilm(current);
+        const target = film.jobs.find(row => row.id === jobId);
+        if (!target) throw new Error('ジョブが見つかりません。');
+        const videoId = await linkedFilmAsset(store, current.id, values.get('resultId'), ['video']);
+        target.resultId = videoId;
+        film.shots[target.shot].visualId = videoId;
+      });
+      return '動画をカットに割り当てました。';
+    });
+}
+
+function removeFilmJob(jobId) {
+  const { project } = state;
+  dialog('ジョブを削除', '<p class="form-hint">ジョブの記録を削除します。素材とカットの映像は残ります。</p>', async () => {
+    await changeProject(project.id, current => {
+      const film = editableFilm(current);
+      film.jobs = film.jobs.filter(job => job.id !== jobId);
+    });
+    return 'ジョブを削除しました。';
+  }, '削除する', true);
+}
+
+'use strict';
+
+const filmFrameRate = 24;
+const filmMimeTypes = {
+  mp4: ['video/mp4;codecs=avc1.42001f,mp4a.40.2', 'video/mp4'],
+  webm: ['video/webm;codecs=vp8,opus', 'video/webm'],
+};
+let filmPlayer;
+
+function filmRecorderType(format) {
+  if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) return '';
+  return filmMimeTypes[format].find(type => MediaRecorder.isTypeSupported(type)) ?? '';
+}
+
+function roundedFill(ctx, x, y, w, h, radius, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, radius);
+  ctx.fill();
+}
+
+function filmPath(ctx, points, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach(([x, y], index) => index ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.stroke();
+}
+
+function filmEllipse(ctx, x, y, width, height, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawStation(ctx) {
+  const sky = ctx.createLinearGradient(0, 0, 0, 720);
+  sky.addColorStop(0, '#111329');
+  sky.addColorStop(.62, '#222b46');
+  sky.addColorStop(1, '#101a2a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, 1280, 720);
+  ctx.fillStyle = '#182138';
+  ctx.fillRect(0, 350, 1280, 72);
+  for (let index = 0; index < 10; index += 1) {
+    const x = index * 150 - 55;
+    ctx.fillStyle = '#2b3655';
+    ctx.fillRect(x, 160 + index % 3 * 26, 100, 172 - index % 3 * 26);
+    for (let windowIndex = 0; windowIndex < 4; windowIndex += 1) {
+      ctx.fillStyle = windowIndex % 2 ? '#53456d' : '#356375';
+      ctx.fillRect(x + 12 + windowIndex * 21, 280 - index % 3 * 12, 11, 10);
+    }
+  }
+  filmPath(ctx, [[0, 417], [1280, 417]], '#45687f', 6);
+  ctx.fillStyle = '#233148';
+  ctx.fillRect(0, 495, 1280, 225);
+  filmPath(ctx, [[0, 505], [1280, 505]], '#92a4a5', 3);
+  filmPath(ctx, [[0, 552], [1280, 552]], '#534966', 4);
+  for (let index = 0; index < 18; index += 1) {
+    const x = index * 80 - 40;
+    filmPath(ctx, [[640 + (x - 640) * .23, 495], [x, 720]], '#2c3a52', 2);
+  }
+  roundedFill(ctx, 934, 109, 224, 77, 12, '#15192b');
+  ctx.fillStyle = '#85d6cb';
+  ctx.font = '600 29px sans-serif';
+  ctx.fillText('零番駅', 966, 158);
+  filmPath(ctx, [[1140, 147], [1118, 147], [1127, 140]], '#85d6cb', 3);
+}
+
+function drawDemoActor(ctx, index, t, cue) {
+  const walk = index === 0;
+  const turning = index === 1;
+  const phase = walk ? t * Math.PI * 2 * 1.65 : 0;
+  const step = walk ? Math.sin(phase) : 0;
+  const headTurn = turning ? Math.min(1, Math.max(0, (t - .55) / 1.15)) : Number(!walk);
+  const easedTurn = headTurn * headTurn * (3 - 2 * headTurn);
+  const scale = index === 2 ? 1.42 : 1;
+  const x = walk ? 346 + t * 95 : 630;
+  const baseline = index === 2 ? 730 : 581;
+  const expression = index === 2 ? Math.min(1, Math.max(0, (t - 1.4) / .8)) : 0;
+  filmEllipse(ctx, x, baseline + 3, 76 * scale, 12 * scale, '#121b2b');
+  ctx.save();
+  ctx.translate(x, baseline - Math.abs(step) * 6);
+  ctx.scale(scale, scale);
+  for (const side of [-1, 1]) {
+    const swing = side * step;
+    const lift = walk ? Math.max(0, Math.cos(phase) * side) * 18 : 0;
+    const foot = side * 19 + 44 * swing;
+    filmPath(ctx, [[side * 17, -118], [side * 20 + swing * 21, -62 - lift * .5], [foot, -13 - lift]], side < 0 ? '#2b2a42' : '#3d3953', 23);
+    filmPath(ctx, [[foot - 8, -6 - lift], [foot + 20, -6 - lift]], '#191b29', 14);
+  }
+  filmPath(ctx, [[-36, -208], [-41 - step * 13, -170], [-35 - step * 24, -143]], '#a68670', 17);
+  roundedFill(ctx, -36, -226, 72, 116, 26, '#b7987a');
+  filmPath(ctx, [[-9, -202], [6, -191], [6, -119]], '#d9b69a', 4);
+  filmPath(ctx, [[30, -205], [44 + step * 10, -175], [44 + step * 23, -143]], '#c8a789', 16);
+  filmEllipse(ctx, 44 + step * 23, -140, 7, 9, '#eac2a1');
+  ctx.save();
+  ctx.translate(6 * (1 - easedTurn), -258);
+  filmEllipse(ctx, 0, 0, 37 + easedTurn * 3, 46, '#252338');
+  filmEllipse(ctx, 11 * (1 - easedTurn), 6, 28 + easedTurn * 3, 35, '#edc1a1');
+  filmPath(ctx, [[-23, -21], [-7, -31], [14, -22], [28, -15]], '#292437', 13);
+  const blink = Math.abs((t + .9) % 2.45 - 2.14) < .065;
+  const eyeHeight = blink ? 1 : 4 + expression * 2;
+  if (headTurn > .27) filmEllipse(ctx, -13 * easedTurn, 1, 3, eyeHeight, '#282238');
+  filmEllipse(ctx, 20 - easedTurn * 6, 1, 3, eyeHeight, '#282238');
+  filmPath(ctx, [[10, -10 - expression * 5], [20, -11 - expression * 6]], '#644451', 2);
+  const [mw, mh] = ({ A: [5, 2], B: [8, 2], C: [8, 4], D: [8, 8], E: [5, 6], F: [3, 6],
+    G: [8, 3], H: [5, 3], X: [5, 1] })[cue ?? 'X'];
+  if (!cue && expression > .5) {
+    filmPath(ctx, [[7, 19], [12, 22], [17, 18]], '#823f54', 2);
+  } else {
+    filmEllipse(ctx, 13 - easedTurn * 9, 19, mw, mh, '#823f54');
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawFilmSubtitle(ctx, line) {
+  if (!line) return;
+  ctx.font = '600 32px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = [];
+  let current = '';
+  for (const char of line) {
+    if (char === '\n' || ctx.measureText(current + char).width > 1050) {
+      lines.push(current);
+      current = char === '\n' ? '' : char;
+    } else current += char;
+  }
+  if (current) lines.push(current);
+  const visible = lines.slice(0, 3);
+  const startY = 665 - (visible.length - 1) * 44;
+  visible.forEach((text, index) => {
+    const width = ctx.measureText(text).width + 44;
+    const y = startY + index * 44;
+    roundedFill(ctx, (1280 - width) / 2, y - 21, width, 42, 7, 'rgba(10, 12, 24, .82)');
+    ctx.fillStyle = '#fff7ec';
+    ctx.fillText(text, 640, y);
+  });
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawFilmFrame(player, time, playing = false) {
+  const index = time < 3 ? 0 : time < 6 ? 1 : 2;
+  const localTime = time - shotStarts[index];
+  const shot = player.film.shots[index];
+  const ctx = player.ctx;
+  const clip = player.clips.get(index);
+  const video = clip?.tagName === 'VIDEO' ? clip : null;
+  if (player.activeVideo !== video) {
+    player.activeVideo?.pause();
+    player.activeVideo = video;
+    if (video && playing) {
+      video.currentTime = Math.min(localTime, Math.max(0, video.duration - .033));
+      video.play().catch(() => {
+        if (filmPlayer === player && player.abort) {
+          player.error = new Error('動画素材を再生できませんでした。対応形式の素材に変更してください。');
+          player.abort.abort();
+        }
+      });
+    }
+  }
+  if (video && !playing && video.readyState >= 2) {
+    const position = Math.min(localTime, Math.max(0, video.duration - .033));
+    if (Math.abs(video.currentTime - position) > .045) video.currentTime = position;
+  }
+
+  if (!shot.visualId) {
+    const voiceTime = localTime - shot.audioOffset;
+    const cue = shot.cues.find(row => voiceTime >= row.start && voiceTime < row.end)?.value;
+    drawStation(ctx);
+    drawDemoActor(ctx, index, localTime, cue);
+  } else {
+    ctx.fillStyle = '#131425';
+    ctx.fillRect(0, 0, 1280, 720);
+    if (clip && (!video || video.readyState >= 2)) {
+      const width = video ? video.videoWidth : clip.naturalWidth;
+      const height = video ? video.videoHeight : clip.naturalHeight;
+      const scale = Math.min(1280 / width, 720 / height);
+      if (width && height) ctx.drawImage(clip, (1280 - width * scale) / 2, (720 - height * scale) / 2, width * scale, height * scale);
+    }
+  }
+  drawFilmSubtitle(ctx, shot.line);
+  player.time = time;
+  player.range.value = time;
+  player.clock.textContent = `${time.toFixed(2)} / 10.00 秒`;
+}
+
+function loadFilmClip(player, index, asset) {
+  const element = asset.kind === 'video' ? document.createElement('video') : new Image();
+  const video = asset.kind === 'video';
+  if (video) {
+    element.preload = 'auto';
+    element.muted = true;
+    element.playsInline = true;
+    element.addEventListener('seeked', () => {
+      if (!player.abort && filmPlayer === player) drawFilmFrame(player, player.time);
+    });
+  }
+  const url = URL.createObjectURL(asset.blob);
+  player.urls.push(url);
+  return new Promise((resolve, reject) => {
+    const loadedEvent = video ? 'loadeddata' : 'load';
+    const timer = setTimeout(() => done(false), 10000);
+    function done(success) {
+      clearTimeout(timer);
+      element.removeEventListener(loadedEvent, loaded);
+      element.removeEventListener('error', failed);
+      if (success) {
+        player.clips.set(index, element);
+        resolve();
+      } else reject(new Error(`「${asset.name}」を読み込めません。このブラウザで再生できる素材に変更してください。`));
+    }
+    function loaded() { done(!video || Number.isFinite(element.duration)); }
+    function failed() { done(false); }
+    element.addEventListener(loadedEvent, loaded);
+    element.addEventListener('error', failed);
+    element.src = url;
+  });
+}
+
+function mountFilmPreview({ project, assets }) {
+  const canvas = document.getElementById('film-canvas');
+  const player = {
+    canvas, ctx: canvas.getContext('2d'), film: filmOf(project), assets: new Map(assets.map(asset => [asset.id, asset])),
+    range: document.getElementById('film-time'), clock: document.getElementById('film-clock'),
+    status: document.getElementById('film-status'), download: document.getElementById('film-download'),
+    clips: new Map(), urls: [], activeVideo: null, time: 0, abort: null, error: null, outputUrl: '',
+  };
+  filmPlayer = player;
+  player.range.addEventListener('input', () => drawFilmFrame(player, Number(player.range.value)));
+  const supported = ['mp4', 'webm'].filter(format => filmRecorderType(format));
+  for (const format of ['mp4', 'webm']) {
+    main.querySelector(`[data-action="film-${format}"]`).disabled = !supported.includes(format);
+  }
+  player.readyStatus = supported.includes('mp4')
+    ? '書き出し中は、この画面を開いたままにしてください。'
+    : 'このブラウザはMP4の録画に対応していません。' + (supported.includes('webm') ? 'WebMは書き出せます。' : 'プレビューは利用できます。');
+  player.status.textContent = player.readyStatus;
+  drawFilmFrame(player, 0);
+  player.ready = Promise.all(player.film.shots.map((shot, index) => {
+    const asset = player.assets.get(shot.visualId);
+    return asset ? loadFilmClip(player, index, asset) : undefined;
+  })).then(() => {
+    if (filmPlayer === player && !player.abort) drawFilmFrame(player, player.time);
+  }).catch(error => {
+    player.loadError = error;
+    if (filmPlayer === player) player.status.textContent = report(error);
+  });
+}
+
+function unmountFilmPreview() {
+  if (!filmPlayer) return;
+  const player = filmPlayer;
+  filmPlayer = undefined;
+  player.abort?.abort();
+  player.activeVideo?.pause();
+  for (const url of player.urls) URL.revokeObjectURL(url);
+  if (player.outputUrl) URL.revokeObjectURL(player.outputUrl);
+}
+
+function filmBusy(player, busy) {
+  player.range.disabled = busy;
+  for (const label of ['play', 'mp4', 'webm', 'shot', 'cues', 'job-add', 'job-edit', 'job-result', 'job-remove']) {
+    main.querySelectorAll(`[data-action="film-${label}"]`).forEach(button => {
+      button.disabled = busy || (Object.hasOwn(filmMimeTypes, label) && !filmRecorderType(label));
+    });
+  }
+}
+
+function startFilmRecorder(player, format, audioStream) {
+  const canvasStream = player.canvas.captureStream(filmFrameRate);
+  try {
+    const streams = [canvasStream, audioStream].filter(Boolean);
+    const stream = new MediaStream(streams.flatMap(item => item.getTracks()));
+    const recorder = new MediaRecorder(stream, { mimeType: filmRecorderType(format), videoBitsPerSecond: 3_000_000 });
+    const chunks = [];
+    const finished = new Promise((resolve, reject) => {
+      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType }));
+      recorder.onerror = event => {
+        reject(event.error ?? new Error('ブラウザの書き出し処理に失敗しました。'));
+        player.error = new Error('ブラウザの書き出し処理に失敗しました。');
+        player.abort?.abort();
+      };
+    });
+    finished.catch(() => {});
+    recorder.start();
+    return {
+      finished,
+      stop() {
+        if (recorder.state !== 'inactive') recorder.stop();
+        for (const track of canvasStream.getTracks()) track.stop();
+      },
+    };
+  } catch (error) {
+    for (const track of canvasStream.getTracks()) track.stop();
+    throw error;
+  }
+}
+
+function waitFilmFrames(player, from, signal) {
+  return new Promise(resolve => {
+    const start = performance.now();
+    let frame;
+    function finish() {
+      cancelAnimationFrame(frame);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    }
+    function tick(now) {
+      const time = Math.min(filmDuration, from + (now - start) / 1000);
+      drawFilmFrame(player, time, true);
+      if (time >= filmDuration) finish();
+      else frame = requestAnimationFrame(tick);
+    }
+    if (signal.aborted) return resolve();
+    signal.addEventListener('abort', finish, { once: true });
+    frame = requestAnimationFrame(tick);
+  });
+}
+
+async function scheduleFilmAudio(player, context, from, destination) {
+  const loaded = await Promise.all(player.film.shots.map(async shot => {
+    const asset = player.assets.get(shot.audioId);
+    if (!asset) return null;
+    try { return await context.decodeAudioData(await asset.blob.arrayBuffer()); }
+    catch { throw new Error(`「${asset.name}」を音声として読み込めません。素材の形式を変更してください。`); }
+  }));
+  return () => {
+    const now = context.currentTime;
+    return loaded.flatMap((buffer, index) => {
+      if (!buffer) return [];
+      const start = shotStarts[index] + player.film.shots[index].audioOffset;
+      const offset = Math.max(0, from - start);
+      const duration = Math.min(shotStarts[index + 1] - Math.max(from, start), buffer.duration - offset);
+      if (duration <= 0) return [];
+      const node = context.createBufferSource();
+      node.buffer = buffer;
+      node.connect(destination);
+      node.start(now + Math.max(0, start - from), offset, duration);
+      return [node];
+    });
+  };
+}
+
+async function runFilm(format) {
+  const player = filmPlayer;
+  if (!player || player.abort) return;
+  if (format && !filmRecorderType(format)) return;
+  const abort = new AbortController();
+  player.abort = abort;
+  player.error = null;
+  function handleHiddenPage() {
+    if (!document.hidden || !format) return;
+    player.error = new Error('画面が非表示になったため、書き出しを中止しました。この画面を開いたまま再試行してください。');
+    abort.abort();
+  }
+  document.addEventListener('visibilitychange', handleHiddenPage);
+  const from = !format && player.time < filmDuration ? player.time : 0;
+  let context, recorder, destination, sources = [];
+  filmBusy(player, true);
+  player.status.textContent = '素材を準備しています…';
+  try {
+    if (player.film.shots.some(shot => shot.audioId)) {
+      const AudioEngine = window.AudioContext ?? window.webkitAudioContext;
+      if (!AudioEngine) throw new Error('このブラウザは音声の合成に対応していません。');
+      context = new AudioEngine();
+      await context.resume();
+      destination = format ? context.createMediaStreamDestination() : context.destination;
+    }
+    await player.ready;
+    if (player.loadError) throw player.loadError;
+    if (abort.signal.aborted) return;
+    const startAudio = context ? await scheduleFilmAudio(player, context, from, destination) : null;
+    if (abort.signal.aborted) return;
+    // Start the selected video from its current timeline position when playback begins.
+    player.activeVideo?.pause();
+    player.activeVideo = null;
+    drawFilmFrame(player, from, true);
+    if (format) {
+      player.download.hidden = true;
+      recorder = startFilmRecorder(player, format, destination?.stream);
+    }
+    if (startAudio) sources = startAudio();
+    player.status.textContent = format ? `${format.toUpperCase()}を書き出しています…` : '再生中';
+    await waitFilmFrames(player, from, abort.signal);
+    if (player.error) throw player.error;
+    if (abort.signal.aborted) {
+      player.status.textContent = '停止しました。';
+      return;
+    }
+    if (!recorder) {
+      player.status.textContent = '再生が終了しました。';
+      return;
+    }
+
+    recorder.stop();
+    const blob = await recorder.finished;
+    if (abort.signal.aborted) return;
+    const signature = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+    if (format === 'mp4' && String.fromCharCode(...signature.slice(4)) !== 'ftyp') {
+      throw new Error('このブラウザで有効なMP4を作成できませんでした。対応する場合はWebMをお試しください。');
+    }
+    if (format === 'webm' && signature.slice(0, 4).join(',') !== '26,69,223,163') {
+      throw new Error('このブラウザで有効なWebMを作成できませんでした。');
+    }
+    if (player.outputUrl) URL.revokeObjectURL(player.outputUrl);
+    player.outputUrl = URL.createObjectURL(blob);
+    player.download.href = player.outputUrl;
+    player.download.download = `my-anime-studio-10s.${format}`;
+    player.download.textContent = `${format.toUpperCase()}を保存`;
+    player.download.hidden = false;
+    player.status.textContent = '書き出しが完了しました。';
+  } catch (error) {
+    player.status.textContent = error?.name === 'Error' ? report(error) : 'ブラウザの再生または書き出し処理に失敗しました。';
+  } finally {
+    document.removeEventListener('visibilitychange', handleHiddenPage);
+    recorder?.stop();
+    sources.forEach(source => source.stop());
+    destination?.stream?.getTracks().forEach(track => track.stop());
+    if (context) void context.close().catch(() => {});
+    player.activeVideo?.pause();
+    player.abort = null;
+    if (filmPlayer === player) {
+      if (abort.signal.aborted && player.status.textContent === '素材を準備しています…') {
+        player.status.textContent = player.error ? report(player.error) : '停止しました。';
+      }
+      filmBusy(player, false);
+    }
+  }
+}
+
+'use strict';
+
+const sample = {
+  id: 'osusume',
+  title: 'おすすめ',
+  genre: '短編SFミステリー',
+  summary: '2089年。都市の推薦AIが、存在しない駅への切符を勧めてくる。行方不明の姉を追う灯は、その行き先に自分の名前を見つける。',
+  scenes: [
+    { id: 'last-train', title: '終電のおすすめ', place: '東都・高架駅 ／ 深夜', notes: '終電を逃した灯の端末に、地図にない「零番駅」への切符が表示される。' },
+    { id: 'zero-platform', title: '零番ホーム', place: '無人の地下ホーム ／ 深夜', notes: '発車案内に表示された乗客は二人。灯と、三年前に失踪した姉の澪だった。' },
+    { id: 'next-recommendation', title: '次の行き先', place: '推薦AIの保守室 ／ 夜明け前', notes: '灯は推薦の履歴をたどり、姉が未来の自分へ残した経路を見つける。' },
+  ],
+  characters: [
+    { id: 'akari', name: '灯（あかり）', role: '主人公・交通記録の調査員', appearance: '短い黒髪。雨染みのある薄茶のコート。', notes: '失踪した姉を探す。駅の時計をつい自分の腕時計と見比べる。' },
+    { id: 'mio', name: '澪（みお）', role: '灯の姉・元推薦AI技師', appearance: '長い黒髪を結び、古い銀色の腕時計を着けている。', notes: '推薦システムから自分の情報を消し、灯にだけたどれる手掛かりを残した。' },
+  ],
+  boards: [
+    { id: 'ticket', title: '存在しない切符', sceneId: 'last-train', imageId: '', camera: '手元の寄り', notes: '濡れた端末に「あなたへのおすすめ：零番駅」と表示される。列車の走行音が止む。' },
+    { id: 'platform', title: '二人の乗客', sceneId: 'zero-platform', imageId: '', camera: 'ホーム全景', notes: '無人の線路の先で、紫の信号が一つだけ点灯する。天井の案内板が姉の名前に切り替わる。' },
+  ],
+};
+
+const views = {
+  works: { label: '作品一覧', icon: 'works' },
+  film: { label: '10秒編集', icon: 'film' },
+  scenes: { label: 'シーン管理', icon: 'scenes', unit: 'シーン' },
+  characters: { label: 'キャラクター', title: 'キャラクター設定', icon: 'characters', unit: '人' },
+  boards: { label: '絵コンテ', icon: 'boards', unit: 'カット' },
+  assets: { label: '素材', title: '素材アップロード', icon: 'assets', unit: '件' },
+};
+
+const paths = {
+  film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4Z"/>',
+  works: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M8 6l2-3m4 3 2-3"/>',
+  scenes: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8m-8 3h5"/>',
+  characters: '<circle cx="10" cy="8" r="3"/><path d="M4 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-14a3 3 0 0 1 0 6m2 2a4 4 0 0 1 2 4v2"/>',
+  boards: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 12h18"/>',
+  assets: '<path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>',
+  arrow: '<path d="M4 12h15m-6-6 6 6-6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1"/><path d="m3 17 5-4 4 3 4-5 5 6"/>',
+};
+
+const main = document.getElementById('main');
+const editor = document.getElementById('editor');
+const form = document.getElementById('editor-form');
+const formError = document.getElementById('editor-error');
+const submit = document.getElementById('editor-submit');
+const notice = document.getElementById('notice');
+const backupOnly = document.body.hasAttribute('data-backup-only');
+let database;
+let state;
+let saveEditor;
+let renderVersion = 0;
+let noticeTimer;
+let mediaUrls = new Map();
+
+function icon(name) {
+  return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+}
+
+function id() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function storageName() {
+  const directory = location.pathname.replace(/\/(?:index|backup)\.html$/, '/').replace(/\/+$/, '');
+  // Project sites on the same GitHub Pages account share an origin.
+  return directory && location.protocol !== 'file:'
+    ? `my-anime-studio:${directory}`
+    : 'my-anime-studio';
+}
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(storageName(), 1);
+    request.onupgradeneeded = () => {
+      if (backupOnly) {
+        request.transaction.abort();
+        return;
+      }
+      const db = request.result;
+      db.createObjectStore('projects', { keyPath: 'id' }).add(sample);
+      db.createObjectStore('assets', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('別のタブを閉じてから、ページを再読み込みしてください。'));
+  });
+}
+
+function result(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function transaction(stores, mode, operate) {
+  const tx = database.transaction(stores, mode);
+  const finished = new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onabort = () => reject(tx.error ?? new Error('保存処理が中断されました。'));
+  });
+
+  try {
+    const [value] = await Promise.all([operate(tx), finished]);
+    return value;
+  } catch (error) {
+    try { tx.abort(); } catch { /* The transaction may have already ended. */ }
+    throw error;
+  }
+}
+
+function readStudio(projectId) {
+  return transaction(['projects', 'assets'], 'readonly', async tx => {
+    const projects = await result(tx.objectStore('projects').getAll());
+    const project = projects.find(item => item.id === projectId)
+      ?? projects.find(item => item.id === sample.id)
+      ?? projects[0];
+    const assets = await result(tx.objectStore('assets').index('projectId').getAll(project.id));
+    assets.sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name, 'ja'));
+    return { projects, project, assets };
+  });
+}
+
+function changeProject(projectId, update) {
+  return transaction(['projects', 'assets'], 'readwrite', async tx => {
+    const projects = tx.objectStore('projects');
+    const project = await result(projects.get(projectId));
+    if (!project) throw new Error('この作品は見つかりません。');
+    await update(project, tx.objectStore('assets'));
+    return result(projects.put(project));
+  });
+}
+
+function notify(message) {
+  notice.textContent = message;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { notice.textContent = ''; }, 3200);
+}
+
+function report(error) {
+  return error?.name === 'QuotaExceededError'
+    ? 'ブラウザの保存容量が足りません。不要な素材を削除するか、小さいファイルを選んでください。'
+    : error?.name === 'Error' ? error.message : '処理を完了できませんでした。もう一度お試しください。';
+}
+
+function href(view, projectId) {
+  return `#/${view}/${projectId}`;
+}
+
+function navigation(view, project) {
+  return Object.entries(views).map(([key, config]) => `
+    <a class="nav-link" href="${href(key, project.id)}"${key === view ? ' aria-current="page"' : ''}>
+      ${icon(config.icon)}<span>${config.label}</span>
+    </a>`).join('');
+}
+
+function action(label, verb, itemId = '', className = 'secondary') {
+  return `<button type="button" class="button ${className}" data-action="${verb}" data-id="${itemId}">${label}</button>`;
+}
+
+function pageHead(view, addLabel, project) {
+  return `<div class="page-head">
+    <div>${view === 'works' ? '' : `<p class="page-context">${escapeHtml(project.title)}</p>`}
+      <h1 id="view-title" tabindex="-1">${views[view].title ?? views[view].label}</h1>
+    </div>
+    ${action(icon('plus') + addLabel, 'add', '', 'primary')}
+  </div>`;
+}
+
+function worksPage({ project, projects, assets }) {
+  const otherWorks = projects.filter(item => item.id !== project.id);
+  return pageHead('works', '作品を作成', project) + `
+    <section class="hero ${project.id === sample.id ? 'seeded' : ''}" aria-labelledby="work-title">
+      <div class="hero-content">
+        ${project.genre ? `<p class="hero-genre">${escapeHtml(project.genre)}</p>` : ''}
+        <h2 id="work-title">${escapeHtml(project.title)}</h2>
+        ${project.summary ? `<p class="hero-summary">${escapeHtml(project.summary)}</p>` : ''}
+        <div class="hero-actions">
+          <a class="button hero-open" href="${href('film', project.id)}">10秒のテストシーン ${icon('arrow')}</a>
+          <a class="button hero-edit" href="${href('scenes', project.id)}">制作を開く</a>
+          ${action('作品を編集', 'edit', project.id, 'hero-edit')}
+        </div>
+      </div>
+    </section>
+    <section aria-labelledby="tool-title">
+      <header class="section-head"><h2 id="tool-title">制作メニュー</h2></header>
+      <div class="tools">
+        ${Object.entries(views).filter(([key]) => key !== 'works').map(([key, config]) => `
+        <a class="tool" href="${href(key, project.id)}">
+          <span class="tile-icon">${icon(config.icon)}</span>
+          <span class="tool-end"><span><strong>${config.label}</strong>
+            <small>${key === 'film' ? '3カット・プレビュー・書き出し' : `${(key === 'assets' ? assets : project[key]).length} ${config.unit}`}</small></span>${icon('arrow')}</span>
+        </a>`).join('')}
+      </div>
+    </section>
+    ${otherWorks.length ? `<section aria-labelledby="other-title">
+      <header class="section-head"><h2 id="other-title">ほかの作品</h2></header>
+      <div class="work-grid">${otherWorks.map(item => `
+        <article class="work-item"><a href="${href('works', item.id)}">
+          <span>${escapeHtml(item.genre)}</span><strong>${escapeHtml(item.title)}</strong>
+        </a></article>`).join('')}</div>
+    </section>` : ''}
+    ${backupPanel()}`;
+}
+
+function entryActions(item, index, length, ordered = true) {
+  const move = (label, direction, disabled) => `
+    <button type="button" class="button secondary" data-action="${direction}" data-id="${item.id}"${disabled ? ' disabled' : ''}>${label}</button>`;
+  return `<div class="row-actions">
+    ${action('編集', 'edit', item.id)}
+    ${ordered ? move('上へ', 'up', index === 0) + move('下へ', 'down', index === length - 1) : ''}
+    ${action('削除', 'remove', item.id, 'text-danger')}
+  </div>`;
+}
+
+const empty = message => `<div class="empty"><p>${message}</p></div>`;
+
+function scenesPage({ project }) {
+  return pageHead('scenes', 'シーンを追加', project) + (project.scenes.length ? `<div class="entries">${project.scenes.map((scene, index) => `
+    <article class="entry">
+      <span class="entry-number" aria-label="シーン ${index + 1}">${String(index + 1).padStart(2, '0')}</span>
+      <div class="entry-content">
+        ${scene.place ? `<span class="entry-label">${escapeHtml(scene.place)}</span>` : ''}
+        <h2>${escapeHtml(scene.title)}</h2>
+        ${scene.notes ? `<p>${escapeHtml(scene.notes)}</p>` : ''}
+        ${entryActions(scene, index, project.scenes.length)}
+      </div>
+    </article>`).join('')}</div>` : empty('シーンを追加して、物語の流れを組み立てます。'));
+}
+
+function charactersPage({ project, assets }) {
+  return pageHead('characters', 'キャラクターを追加', project) + (project.characters.length ? `<div class="entries">${project.characters.map(character => `
+    <article class="entry">
+      <span class="entry-number">${icon('characters')}</span>
+      <div class="entry-content">
+        ${character.role ? `<span class="entry-label">${escapeHtml(character.role)}</span>` : ''}
+        <h2>${escapeHtml(character.name)}</h2>
+        ${character.appearance ? `<p>${escapeHtml(character.appearance)}</p>` : ''}
+        ${character.notes ? `<p>${escapeHtml(character.notes)}</p>` : ''}
+        ${characterReferences(character, assets)}
+        ${entryActions(character, 0, 0, false)}
+      </div>
+    </article>`).join('')}</div>` : empty('登場人物の名前、役割、外見を登録できます。'));
+}
+
+function mediaUrl(asset) {
+  if (!mediaUrls.has(asset.id)) mediaUrls.set(asset.id, URL.createObjectURL(asset.blob));
+  return mediaUrls.get(asset.id);
+}
+
+function boardsPage({ project, assets }) {
+  return pageHead('boards', 'カットを追加', project) + (project.boards.length ? `<div class="board-grid">${project.boards.map((board, index) => {
+    const scene = project.scenes.find(item => item.id === board.sceneId);
+    const image = assets.find(asset => asset.id === board.imageId);
+    return `<article class="board">
+      <div class="board-image">${image ? `<img src="${mediaUrl(image)}" alt="${escapeHtml(image.name)}">` : icon('image')}</div>
+      <span class="entry-label">カット ${String(index + 1).padStart(2, '0')}${scene ? ` ・ ${escapeHtml(scene.title)}` : ''}</span>
+      <h2>${escapeHtml(board.title)}</h2>
+      ${board.camera ? `<p>${escapeHtml(board.camera)}</p>` : ''}
+      ${board.notes ? `<p>${escapeHtml(board.notes)}</p>` : ''}
+      ${entryActions(board, index, project.boards.length)}
+    </article>`;
+  }).join('')}</div>` : empty('カットの構図や演出を記録し、シーンや画像素材と関連付けられます。'));
+}
+
+function formatSize(bytes) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function assetPreview(asset) {
+  const url = mediaUrl(asset);
+  if (asset.kind === 'image') return `<div class="asset-media"><img src="${url}" alt="${escapeHtml(asset.name)}"></div>`;
+  if (asset.kind === 'video') return `<div class="asset-media"><video src="${url}" controls playsinline preload="metadata" aria-label="${escapeHtml(asset.name)}"></video></div>`;
+  return `<audio class="asset-audio" src="${url}" controls preload="metadata" aria-label="${escapeHtml(asset.name)}"></audio>`;
+}
+
+function assetsPage({ project, assets }) {
+  return pageHead('assets', 'ファイルを追加', project) + (assets.length ? `<div class="asset-grid">${assets.map(asset => `
+    <article class="asset">
+      ${assetPreview(asset)}
+      <span class="asset-info">${({ image: '画像', video: '動画', audio: '音声' })[asset.kind]} ・ ${formatSize(asset.blob.size)}</span>
+      <h2>${escapeHtml(asset.name)}</h2>
+      <div class="row-actions">
+        <a class="button secondary" href="${mediaUrl(asset)}" download="${escapeHtml(asset.name)}">ダウンロード</a>
+        ${action('削除', 'remove', asset.id, 'text-danger')}
+      </div>
+    </article>`).join('')}</div>` : empty('スマホから画像・音声・動画を追加できます。1ファイル25 MBまで。'));
+}
+
+const screens = { works: worksPage, film: filmPage, scenes: scenesPage, characters: charactersPage, boards: boardsPage, assets: assetsPage };
+
+async function render(focusHeading = false) {
+  if (!database) return;
+  if (backupOnly) {
+    main.innerHTML = `<div class="page-head"><h1>更新前のバックアップ</h1></div>${backupPanel(true)}`;
+    main.setAttribute('aria-busy', 'false');
+    return;
+  }
+  const version = ++renderVersion;
+  const [, segment, projectId] = location.hash.split('/');
+  const view = Object.hasOwn(views, segment) ? segment : 'works';
+  const data = await readStudio(projectId ?? state?.project.id);
+  if (version !== renderVersion) return;
+
+  const { project } = data;
+  const oldUrls = mediaUrls;
+  unmountFilmPreview();
+  mediaUrls = new Map();
+  main.innerHTML = screens[view](data);
+  if (view === 'film') mountFilmPreview(data);
+  for (const url of oldUrls.values()) URL.revokeObjectURL(url);
+
+  state = { ...data, view };
+  const nav = navigation(view, project);
+  document.getElementById('desktop-nav').innerHTML = nav;
+  document.getElementById('mobile-nav').innerHTML = nav;
+  document.getElementById('active-work').innerHTML = `<div class="active-tile"><span>選択中の作品</span><strong>${escapeHtml(project.title)}</strong></div>`;
+  document.getElementById('breadcrumb').innerHTML = `<a href="${href('works', project.id)}">スタジオ</a><span class="crumb-divider">/</span><strong>${views[view].label}</strong>`;
+  main.setAttribute('aria-busy', 'false');
+  if (focusHeading) {
+    window.scrollTo(0, 0);
+    document.getElementById('view-title').focus({ preventScroll: true });
+  }
+}
+
+const fields = {
+  works: [
+    ['title', '作品名', 'text', true],
+    ['genre', 'ジャンル', 'text'],
+    ['summary', 'あらすじ', 'textarea'],
+  ],
+  scenes: [
+    ['title', 'シーン名', 'text', true],
+    ['place', '場所・時間', 'text'],
+    ['notes', '内容', 'textarea'],
+  ],
+  characters: [
+    ['name', '名前', 'text', true],
+    ['role', '役割', 'text'],
+    ['appearance', '外見', 'textarea'],
+    ['notes', '人物メモ', 'textarea'],
+  ],
+  boards: [
+    ['title', 'カット名', 'text', true],
+    ['sceneId', '関連するシーン', 'select'],
+    ['imageId', '画像素材', 'select'],
+    ['camera', '構図・カメラ', 'text'],
+    ['notes', '演出メモ', 'textarea'],
+  ],
+};
+
+const itemNames = { works: '作品', scenes: 'シーン', characters: 'キャラクター', boards: 'カット', assets: '素材' };
+
+function fieldMarkup([key, label, type, required], defaults, data) {
+  const value = defaults[key] ?? '';
+  let control;
+  if (type === 'textarea') {
+    control = `<textarea name="${key}" maxlength="2000" rows="4">${escapeHtml(value)}</textarea>`;
+  } else if (type === 'select') {
+    const options = key === 'sceneId'
+      ? data.project.scenes.map(scene => [scene.id, scene.title])
+      : data.assets.filter(asset => asset.kind === 'image').map(asset => [asset.id, asset.name]);
+    control = `<select name="${key}"><option value="">未設定</option>${options.map(([optionId, name]) =>
+      `<option value="${optionId}"${optionId === value ? ' selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>`;
+  } else {
+    control = `<input type="text" name="${key}" maxlength="120" value="${escapeHtml(value)}"${required ? ' required' : ''}>`;
+  }
+  return `<label class="field">${label}${control}</label>`;
+}
+
+function dialog(title, content, save, buttonLabel = '保存する', destructive = false) {
+  document.getElementById('editor-title').textContent = title;
+  document.getElementById('editor-body').innerHTML = content;
+  formError.hidden = true;
+  submit.textContent = buttonLabel;
+  submit.className = `button ${destructive ? 'danger' : 'primary'}`;
+  saveEditor = save;
+  editor.showModal();
+  const firstField = form.querySelector('input, textarea, select');
+  if (firstField && firstField.type !== 'file') firstField.focus();
+}
+
+function readFields(view, values) {
+  return Object.fromEntries(fields[view].map(([name, label, , required]) => {
+    const value = values.get(name).trim();
+    if (required && !value) throw new Error(`${label}を入力してください。`);
+    return [name, value];
+  }));
+}
+
+async function checkBoardLinks(project, assets, entry) {
+  if (entry.sceneId && !project.scenes.some(scene => scene.id === entry.sceneId)) {
+    throw new Error('選んだシーンが見つかりません。別のシーンを選んでください。');
+  }
+  if (entry.imageId) {
+    const image = await result(assets.get(entry.imageId));
+    if (image?.projectId !== project.id || image.kind !== 'image') {
+      throw new Error('選んだ画像が見つかりません。別の画像を選んでください。');
+    }
+  }
+}
+
+function editItem(view, itemId) {
+  const data = state;
+  const project = data.project;
+  const item = !itemId ? null : view === 'works' ? project : project[view].find(entry => entry.id === itemId);
+  if (itemId && !item) return;
+  const message = item ? `${itemNames[view]}を更新しました。` : `${itemNames[view]}を追加しました。`;
+  dialog(`${itemNames[view]}を${item ? '編集' : view === 'works' ? '作成' : '追加'}`,
+    fields[view].map(field => fieldMarkup(field, item ?? {}, data)).join(''),
+    async values => {
+      const entry = readFields(view, values);
+      if (view === 'works' && !item) {
+        const newProject = { ...entry, id: id(), scenes: [], characters: [], boards: [] };
+        await transaction(['projects'], 'readwrite', tx => result(tx.objectStore('projects').add(newProject)));
+        location.hash = href('works', newProject.id);
+      } else if (view === 'works') {
+        await changeProject(project.id, current => Object.assign(current, entry));
+      } else {
+        await changeProject(project.id, async (current, assets) => {
+          if (view === 'boards') await checkBoardLinks(current, assets, entry);
+          if (!item) {
+            current[view].push({ ...entry, id: id() });
+            return;
+          }
+          const existing = current[view].find(row => row.id === itemId);
+          if (!existing) throw new Error('編集するデータが見つかりません。');
+          Object.assign(existing, entry);
+        });
+      }
+      return message;
+    });
+}
+
+function upload() {
+  const projectId = state.project.id;
+  dialog('素材を追加', `
+    <label class="field">ファイルを選択
+      <input type="file" name="files" accept="image/*,audio/*,video/*" multiple required>
+    </label>
+    <p class="form-hint">画像・音声・動画を複数選べます。1ファイル25 MBまで。このブラウザに保存されます。</p>`,
+    async values => {
+      const files = values.getAll('files');
+      if (!files.length) throw new Error('ファイルを選択してください。');
+      const assets = files.map(file => {
+        const kind = file.type.split('/')[0];
+        if (!['image', 'audio', 'video'].includes(kind) || !file.size) {
+          throw new Error(`${file.name || '選択したファイル'}は対応形式の画像・音声・動画ではありません。`);
+        }
+        if (file.size > 25_000_000) throw new Error(`${file.name}が25 MBを超えています。`);
+        return { id: id(), projectId, kind, name: file.name, blob: file, createdAt: Date.now() };
+      });
+      await changeProject(projectId, (_project, store) => Promise.all(assets.map(asset => result(store.add(asset)))));
+      return `${assets.length}件の素材を追加しました。`;
+    }, '追加する');
+}
+
+function removeItem(view, itemId) {
+  const { project, assets } = state;
+  const item = (view === 'assets' ? assets : project[view]).find(entry => entry.id === itemId);
+  if (!item) return;
+  const details = view === 'scenes' ? '関連する絵コンテのカットは残り、シーンの関連付けが解除されます。'
+    : view === 'assets' ? '絵コンテ、参照画像、テストシーンからの関連付けが解除されます。' : '';
+  dialog(`${itemNames[view]}を削除`, `<p class="form-hint">「${escapeHtml(item.title ?? item.name)}」を削除します。${details}</p>`,
+    async () => {
+      await changeProject(project.id, async (current, store) => {
+        if (view === 'assets') {
+          await result(store.delete(itemId));
+          for (const board of current.boards) if (board.imageId === itemId) board.imageId = '';
+          detachFilmAsset(current, itemId);
+          return;
+        }
+        current[view] = current[view].filter(entry => entry.id !== itemId);
+        if (view === 'scenes') {
+          for (const board of current.boards) if (board.sceneId === itemId) board.sceneId = '';
+        }
+        if (view === 'characters' && current.film) {
+          for (const shot of current.film.shots) if (shot.characterId === itemId) shot.characterId = '';
+        }
+      });
+      return `${itemNames[view]}を削除しました。`;
+    }, '削除する', true);
+}
+
+async function moveItem(view, itemId, delta) {
+  const projectId = state.project.id;
+  await changeProject(projectId, project => {
+    const list = project[view];
+    const index = list.findIndex(item => item.id === itemId);
+    const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return;
+    [list[index], list[nextIndex]] = [list[nextIndex], list[index]];
+  });
+  await render();
+  main.querySelector(`[data-action="edit"][data-id="${itemId}"]`)?.focus({ preventScroll: true });
+  notify('並び順を更新しました。');
+}
+
+let submitting = false;
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (submitting) return;
+  submitting = true;
+  submit.disabled = true;
+  formError.hidden = true;
+  try {
+    const message = await saveEditor(new FormData(form));
+    editor.close();
+    notify(message);
+    await render().catch(error => notify(report(error)));
+  } catch (error) {
+    formError.textContent = report(error);
+    formError.hidden = false;
+  } finally {
+    submitting = false;
+    submit.disabled = false;
+  }
+});
+
+editor.addEventListener('cancel', event => {
+  if (submitting) event.preventDefault();
+});
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button || button.disabled) return;
+  const { action: verb, id: itemId } = button.dataset;
+  if (verb === 'close') {
+    if (!submitting) editor.close();
+    return;
+  }
+  try {
+    if (verb === 'backup-export') {
+      button.disabled = true;
+      try { await showBackupDownload(); } finally { button.disabled = false; }
+      return;
+    }
+    if (!state) return;
+    const { view } = state;
+    if (verb === 'backup-import') importBackup();
+    else if (verb === 'film-references') editCharacterReferences(itemId);
+    else if (verb === 'film-shot') editFilmShot(Number(itemId));
+    else if (verb === 'film-cues') editFilmCues(Number(itemId));
+    else if (verb === 'film-job-add' || verb === 'film-job-edit') editFilmJob(itemId);
+    else if (verb === 'film-job-result') importFilmJobResult(itemId);
+    else if (verb === 'film-job-remove') removeFilmJob(itemId);
+    else if (verb === 'film-play') await runFilm();
+    else if (verb === 'film-mp4' || verb === 'film-webm') await runFilm(verb.slice(5));
+    else if (verb === 'film-stop') filmPlayer?.abort?.abort();
+    else if (verb === 'add' && view === 'assets') upload();
+    else if (verb === 'add' || verb === 'edit') editItem(view, itemId);
+    else if (verb === 'remove') removeItem(view, itemId);
+    else if (verb === 'up' || verb === 'down') {
+      button.disabled = true;
+      try {
+        await moveItem(view, itemId, verb === 'up' ? -1 : 1);
+      } finally {
+        button.disabled = false;
+      }
+    }
+  } catch (error) {
+    notify(report(error));
+  }
+});
+
+window.addEventListener('hashchange', () => {
+  if (editor.open && !submitting) editor.close();
+  render(true).catch(error => notify(report(error)));
+});
+
+async function start() {
+  try {
+    database = await openDatabase();
+    database.onversionchange = () => database.close();
+    await render();
+  } catch {
+    const indicator = document.querySelector('.storage-status');
+    indicator.classList.add('unavailable');
+    indicator.innerHTML = '<span aria-hidden="true"></span>保存に接続できません';
+    main.setAttribute('aria-busy', 'false');
+    main.innerHTML = `<div class="page-head"><h1>スタジオを開けません</h1></div>
+      ${empty(backupOnly ? 'このURLの保存領域にアクセスできませんでした。以前の公開版を使ったスマホとブラウザで開いてください。' : 'ブラウザの保存領域が利用できません。通常のブラウザタブでHTTPまたはHTTPSのアドレスを開き、再読み込みしてください。')}`;
+  }
+}
+
+start();
+</script>
+</body>
+</html>
